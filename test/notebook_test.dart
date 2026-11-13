@@ -128,7 +128,7 @@ void main() {
     expect(find.text('Xác suất'), findsOneWidget);
     await tester.tap(find.text('Dùng mặc định'));
     await tester.pumpAndSettle();
-    expect(find.text('Tiếp tục học'), findsOneWidget);
+    expect(find.text('Bắt đầu học'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

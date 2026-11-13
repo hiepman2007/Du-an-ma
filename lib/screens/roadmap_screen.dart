@@ -6,8 +6,10 @@ import '../state/app_state.dart';
 import '../theme.dart';
 import '../services/api_client.dart';
 import '../widgets/motion.dart';
+import '../widgets/roadmap_map.dart';
 import '../widgets/source_widgets.dart';
 import 'lesson_screen.dart';
+import 'tutor_chat_screen.dart';
 
 class RoadmapScreen extends StatelessWidget {
   const RoadmapScreen({super.key, required this.courseId, this.showSources = true});
@@ -82,13 +84,6 @@ class StudyRoadmap extends StatefulWidget {
 
 class _StudyRoadmapState extends State<StudyRoadmap> {
   bool _editing = false;
-  final _lanes = ScrollController();
-
-  @override
-  void dispose() {
-    _lanes.dispose();
-    super.dispose();
-  }
 
   Future<void> _rename(BuildContext context, Lesson l) async {
     var title = l.title;
@@ -127,34 +122,33 @@ class _StudyRoadmapState extends State<StudyRoadmap> {
     );
   }
 
-  Lesson? _nextLesson(List<Lesson> lessons) {
-    Lesson? firstUnfinished;
-    Lesson? mostRecent;
-    for (final lesson in lessons) {
-      if (lesson.isDone) continue;
-      firstUnfinished ??= lesson;
-      final lastStudied = lesson.lastStudiedAt;
-      if (lastStudied != null &&
-          (mostRecent == null ||
-              lastStudied.isAfter(mostRecent.lastStudiedAt!))) {
-        mostRecent = lesson;
-      }
-    }
-    return mostRecent ?? firstUnfinished;
+  void _openTutor(Course course, Lesson lesson) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TutorChatScreen(courseId: course.id, lessonId: lesson.id),
+      ),
+    );
   }
 
-  List<_StudyPhase> _phases(List<Lesson> lessons) {
-    final phases = <_StudyPhase>[];
-    for (final lesson in lessons) {
-      final name = lesson.phase.trim();
-      if (phases.isEmpty ||
-          phases.last.name != name ||
-          (name.isEmpty && phases.last.lessons.length == 3)) {
-        phases.add(_StudyPhase(name: name, lessons: []));
-      }
-      phases.last.lessons.add(lesson);
-    }
-    return phases;
+  Future<void> _showLesson(Course course, RoadmapGraph graph, Lesson lesson) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheet) => _LessonSheet(
+        graph: graph,
+        lesson: lesson,
+        onStudy: () {
+          Navigator.pop(sheet);
+          _openLesson(course, lesson);
+        },
+        onAsk: () {
+          Navigator.pop(sheet);
+          _openTutor(course, lesson);
+        },
+      ),
+    );
   }
 
   @override
@@ -163,8 +157,10 @@ class _StudyRoadmapState extends State<StudyRoadmap> {
     final c = s.courseById(widget.courseId);
     if (c == null) return const Text('Khóa học đã bị xóa');
     final total = c.lessons.length;
-    final next = _nextLesson(c.lessons);
-    final phases = _phases(c.lessons);
+    final graph = RoadmapGraph(c.lessons);
+    final next = graph.next();
+    final mastered = c.lessons.where(isMastered).length;
+    final review = c.lessons.where(needsReview).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -205,7 +201,7 @@ class _StudyRoadmapState extends State<StudyRoadmap> {
                       ),
                     const SizedBox(height: 4),
                     Text(
-                      'Hoàn thành ${c.doneLessons}/$total bài',
+                      'Đã học ${c.doneLessons}/$total bài · Nắm vững $mastered',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 12,
@@ -270,7 +266,7 @@ class _StudyRoadmapState extends State<StudyRoadmap> {
           ],
         ),
         const SizedBox(height: 10),
-        if (phases.isEmpty)
+        if (c.lessons.isEmpty)
           const Text('Sơ đồ sẽ hiện sau khi có lộ trình.')
         else if (_editing) ...[
           const Padding(
@@ -303,236 +299,169 @@ class _StudyRoadmapState extends State<StudyRoadmap> {
                 ),
             ],
           ),
-        ] else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final horizontal =
-                  constraints.maxWidth >= 700 && phases.length > 1;
-              final tiles = [
-                for (var i = 0; i < phases.length; i++)
-                  _PhaseCard(
-                    key: ValueKey(phases[i].lessons.first.id),
-                    name: phases[i].name,
-                    index: i,
-                    lessons: phases[i].lessons,
-                    course: c,
-                    next: next,
-                    onOpen: (lesson) => _openLesson(c, lesson),
-                  ),
-              ];
-              if (horizontal) {
-                final laneWidth =
-                    ((constraints.maxWidth - (phases.length - 1) * 28) /
-                            phases.length)
-                        .clamp(230.0, 340.0);
-                return Scrollbar(
-                  controller: _lanes,
-                  thumbVisibility: phases.length * 258 - 28 > constraints.maxWidth,
-                  child: SingleChildScrollView(
-                    controller: _lanes,
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (var i = 0; i < tiles.length; i++) ...[
-                          if (i > 0)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 17, left: 4, right: 4),
-                              child: Icon(
-                                Icons.arrow_forward,
-                                size: 20,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          SizedBox(width: laneWidth, child: tiles[i]),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < tiles.length; i++) ...[
-                    if (i > 0)
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Padding(
-                          padding: EdgeInsets.only(left: 18, top: 2, bottom: 2),
-                          child: Icon(
-                            Icons.arrow_downward,
-                            size: 18,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    tiles[i],
-                  ],
-                ],
-              );
-            },
+        ] else ...[
+          const RoadmapLegend(),
+          const SizedBox(height: 12),
+          RoadmapMap(
+            graph: graph,
+            next: next,
+            onTap: (lesson) => _showLesson(c, graph, lesson),
           ),
+          if (review.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text(
+              'Nên ôn lại',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            for (final lesson in review)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.replay, color: AppColors.danger),
+                  title: Text(lesson.title),
+                  subtitle: Text(
+                    'Đúng ${lesson.correctCount}/${lesson.results.length} câu',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showLesson(c, graph, lesson),
+                ),
+              ),
+          ],
+        ],
       ],
     );
   }
 }
 
-class _StudyPhase {
-  const _StudyPhase({required this.name, required this.lessons});
-
-  final String name;
-  final List<Lesson> lessons;
-}
-
-class _PhaseCard extends StatelessWidget {
-  const _PhaseCard({
-    super.key,
-    required this.name,
-    required this.index,
-    required this.lessons,
-    required this.course,
-    required this.next,
-    required this.onOpen,
-  });
-
-  final String name;
-  final int index;
-  final List<Lesson> lessons;
-  final Course course;
-  final Lesson? next;
-  final ValueChanged<Lesson> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme;
-    final done = lessons.where((lesson) => lesson.isDone).length;
-    final active = lessons.contains(next);
-    final allDone = done == lessons.length;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        initiallyExpanded: active || index == 0,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-        childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-        leading: CircleAvatar(
-          radius: 16,
-          backgroundColor: allDone
-              ? AppColors.success
-              : active
-              ? color.primary
-              : color.primaryContainer,
-          foregroundColor: active || allDone
-              ? color.onPrimary
-              : color.onPrimaryContainer,
-          child: allDone
-              ? const Icon(Icons.check, size: 17)
-              : Text('${index + 1}'),
-        ),
-        title: Text(
-          name.isEmpty ? 'Chặng ${index + 1}' : name,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        subtitle: Text('$done/${lessons.length} bài đã xong'),
-        children: [
-          for (final lesson in lessons)
-            _LessonNode(
-              course: course,
-              lesson: lesson,
-              active: lesson == next,
-              onTap: () => onOpen(lesson),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LessonNode extends StatelessWidget {
-  const _LessonNode({
-    required this.course,
+/// Bảng chi tiết khi bấm vào một bài trên sơ đồ.
+class _LessonSheet extends StatelessWidget {
+  const _LessonSheet({
+    required this.graph,
     required this.lesson,
-    required this.active,
-    required this.onTap,
+    required this.onStudy,
+    required this.onAsk,
   });
 
-  final Course course;
+  final RoadmapGraph graph;
   final Lesson lesson;
-  final bool active;
-  final VoidCallback onTap;
+  final VoidCallback onStudy, onAsk;
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme;
+    final state = context.watch<AppState>();
     final theme = Theme.of(context).textTheme;
-    final date = lesson.scheduledAt;
-    final requiredTitles = [
-      for (final candidate in course.lessons)
-        if (lesson.prerequisites.contains(candidate.id))
-          candidate.title,
+    final status = graph.statusOf(lesson);
+    final missing = graph.missingPrerequisites(lesson);
+    final before = [
+      for (final id in graph.prerequisitesOf(lesson))
+        if (graph.byId(id) case final Lesson l) l,
     ];
-    final status = lesson.isDone
-        ? 'Đã hoàn thành'
-        : lesson.lastStudiedAt != null
-        ? 'Đang học'
-        : 'Chưa học';
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Material(
-        color: active ? color.primaryContainer : color.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 9, 8, 9),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  lesson.isDone
-                      ? Icons.check_circle
-                      : active
-                      ? Icons.play_circle
-                      : Icons.circle_outlined,
-                  color: lesson.isDone
-                      ? AppColors.success
-                      : active
-                      ? color.primary
-                      : color.outline,
-                  size: 18,
+    final mastery = lessonMastery(lesson);
+    const label = TextStyle(fontWeight: FontWeight.w800);
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(children: [
+              Icon(status.icon, size: 18, color: status.color),
+              const SizedBox(width: 6),
+              Text(status.label,
+                  style: TextStyle(color: status.color, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              Text('${lesson.minutes} phút',
+                  style: const TextStyle(color: AppColors.muted)),
+            ]),
+            const SizedBox(height: 8),
+            Text(lesson.title,
+                style: theme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            if (lesson.phase.isNotEmpty)
+              Text('Chặng: ${lesson.phase}',
+                  style: const TextStyle(color: AppColors.muted)),
+            if (lesson.objectives.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const Text('Mục tiêu', style: label),
+              const SizedBox(height: 4),
+              for (final objective in lesson.objectives) Text('• $objective'),
+            ],
+            if (before.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const Text('Cần học trước', style: label),
+              const SizedBox(height: 4),
+              for (final l in before)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Row(children: [
+                    Icon(l.completed ? Icons.check_circle : Icons.radio_button_unchecked,
+                        size: 16,
+                        color: l.completed ? AppColors.success : AppColors.muted),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(l.title)),
+                  ]),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        lesson.title,
-                        style: theme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        '$status · ${lesson.minutes} phút${date == null || lesson.isDone ? '' : ' · ${date.day}/${date.month}'}',
-                        style: theme.bodySmall?.copyWith(
-                          color: color.onSurfaceVariant,
-                        ),
-                      ),
-                      if (requiredTitles.isNotEmpty)
-                        Text(
-                          'Học trước ${requiredTitles.join(', ')}',
-                          style: theme.bodySmall?.copyWith(
-                            color: color.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
+            ],
+            if (mastery != null) ...[
+              const SizedBox(height: 14),
+              Text('Nắm vững ${(mastery * 100).round()}%', style: label),
+              const SizedBox(height: 6),
+              LinearProgressIndicator(
+                value: mastery,
+                minHeight: 6,
+                borderRadius: BorderRadius.circular(3),
+                color: needsReview(lesson) ? AppColors.danger : AppColors.success,
+              ),
+              const SizedBox(height: 4),
+              Text('Đúng ${lesson.correctCount}/${lesson.results.length} câu ngay lần đầu',
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+            ],
+            if (missing.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.accent,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
+                child: Text(
+                  'Nên học "${missing.first.title}" trước. Bạn vẫn có thể học bài này ngay.',
+                  style: const TextStyle(color: AppColors.primaryDark),
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onStudy,
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: Text(status == LessonStatus.inProgress
+                    ? 'Học tiếp bài này'
+                    : 'Học bài này'),
+              ),
             ),
-          ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onAsk,
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('Hỏi gia sư về bài này'),
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () => state.setLessonCompleted(lesson, !lesson.completed),
+                icon: Icon(lesson.completed ? Icons.undo : Icons.check),
+                label: Text(lesson.completed ? 'Bỏ đánh dấu đã xong' : 'Đánh dấu đã xong'),
+              ),
+            ),
+          ],
         ),
       ),
     );
