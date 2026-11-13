@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../services/api_client.dart';
 import '../theme.dart';
+import '../widgets/motion.dart';
 
 /// Man hinh cho AI: hien tung buoc; loi thi cho thu lai. Tra ve ket qua qua Navigator.pop.
 class GeneratingScreen<T> extends StatefulWidget {
@@ -44,15 +45,11 @@ class _GeneratingScreenState<T> extends State<GeneratingScreen<T>> {
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: _error == null
-              ? Column(mainAxisSize: MainAxisSize.min, children: [
-                  const SizedBox(width: 56, height: 56, child: CircularProgressIndicator(strokeWidth: 5)),
-                  const SizedBox(height: 24),
-                  const Eyebrow('AI đang làm việc'),
-                  const SizedBox(height: 6),
-                  Text(_step, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  const Text('Thường mất 15–40 giây', style: TextStyle(color: AppColors.muted)),
-                ])
+              // Buoc that tu AppState (tai len, doc nguon...) hien noi bat; khi cho lau thi them goi y luan phien.
+              ? AiThinking(
+                  key: ValueKey(_step),
+                  messages: [_step, 'Phân tích cấu trúc tài liệu…', 'Sắp xếp bài từ cơ bản đến nâng cao…', 'Gợi ý kiểu tương tác cho từng bài…'],
+                )
               : Column(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
                   const SizedBox(height: 12),

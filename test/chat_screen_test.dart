@@ -80,6 +80,6 @@ void main() {
     await tester.tap(find.text('Đúng'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('Chính xác!'), findsOneWidget);
+    expect(find.textContaining('Chính xác!'), findsOneWidget);
   });
 }

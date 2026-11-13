@@ -85,6 +85,15 @@ ThemeData buildTheme() {
     ),
     progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.primary, linearTrackColor: Color(0xFFF0F0F0)),
     dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 0.8),
+    // Chuyen trang muot: mo dan + truot nhe (Android).
+    pageTransitionsTheme: const PageTransitionsTheme(builders: {
+      TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+    }),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.ink,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
   );
 }
 

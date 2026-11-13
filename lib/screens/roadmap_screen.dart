@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../services/api_client.dart';
+import '../widgets/motion.dart';
 import '../widgets/source_widgets.dart';
 import 'lesson_screen.dart';
 
@@ -63,17 +64,32 @@ class RoadmapScreen extends StatelessWidget {
         ],
       ),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        Eyebrow(c.sourceLabel),
-        const SizedBox(height: 4),
-        Text(c.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 4),
-        Text('Mục tiêu: ${c.goal}', style: const TextStyle(color: AppColors.muted)),
-        const SizedBox(height: 12),
-        LinearProgressIndicator(value: total == 0 ? 0 : c.doneLessons / total, minHeight: 8, borderRadius: BorderRadius.circular(4)),
-        const SizedBox(height: 6),
-        Text('Hoàn thành ${c.doneLessons}/$total bài', style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+        HeroBackground(
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text((c.subject.isNotEmpty ? c.subject : c.sourceLabel).toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
+                const SizedBox(height: 6),
+                Text(c.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, height: 1.2)),
+                const SizedBox(height: 6),
+                Text('🎯 ${c.goal}', style: TextStyle(color: Colors.white.withValues(alpha: 0.9))),
+                const SizedBox(height: 4),
+                Text('Hoàn thành ${c.doneLessons}/$total bài', style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12)),
+              ]),
+            ),
+            const SizedBox(width: 12),
+            ProgressRing(
+              value: total == 0 ? 0 : c.doneLessons / total,
+              size: 72,
+              stroke: 7,
+              color: Colors.white,
+              track: Colors.white.withValues(alpha: 0.25),
+            ),
+          ]),
+        ).enter(context),
         const SizedBox(height: 14),
-        _SourcesPanel(course: c),
+        _SourcesPanel(course: c).enter(context, index: 1),
         const SizedBox(height: 18),
         const SectionHeader(eyebrow: 'Lộ trình do AI đề xuất', title: 'Các bài học'),
         const Text('Giữ và kéo để đổi thứ tự, chạm ⋮ để sửa hoặc xóa bài.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
@@ -95,7 +111,7 @@ class RoadmapScreen extends StatelessWidget {
                     lesson: c.lessons[i],
                     index: i,
                     onRename: () => _rename(context, c.lessons[i]),
-                  ),
+                  ).enter(context, index: i + 2),
                 ),
               ),
           ],
@@ -135,6 +151,21 @@ class _LessonTile extends StatelessWidget {
                 Text(lesson.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(status, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                if (lesson.interactionHint.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(8)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.touch_app_outlined, size: 14, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(lesson.interactionHint,
+                            maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.primaryDark)),
+                      ),
+                    ]),
+                  ),
+                ],
                 if (lesson.objectives.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   for (final o in lesson.objectives.take(3))

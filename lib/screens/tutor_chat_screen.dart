@@ -7,6 +7,7 @@ import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/blocks/block_renderer.dart';
+import '../widgets/motion.dart';
 
 /// Gia su hoi dap kieu ChatGPT: moi cau tra loi la chuoi khoi (chu + LaTeX, anh that,
 /// do thi/mo phong, giai tung buoc, code demo...) do AI tu chon, render bang BlockRenderer.
@@ -114,8 +115,8 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
                   itemBuilder: (_, i) {
                     if (i == msgs.length) return const _Typing();
                     final m = msgs[i];
-                    if (m.fromUser) return _UserBubble(text: m.text);
-                    return _TutorAnswer(message: m, lesson: l);
+                    if (m.fromUser) return _UserBubble(text: m.text).enter(context, dy: 0.2);
+                    return _TutorAnswer(message: m, lesson: l).enter(context);
                   },
                 ),
         ),
@@ -334,8 +335,8 @@ class _Typing extends StatelessWidget {
   Widget build(BuildContext context) => const Padding(
         padding: EdgeInsets.symmetric(vertical: 14),
         child: Row(children: [
-          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-          SizedBox(width: 10),
+          TypingDots(),
+          SizedBox(width: 12),
           Text('Gia sư đang soạn câu trả lời…', style: TextStyle(color: AppColors.muted)),
         ]),
       );

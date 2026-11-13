@@ -73,24 +73,38 @@ class _OptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: color?.withValues(alpha: 0.12) ?? Theme.of(context).colorScheme.surface,
-      shape: RoundedRectangleBorder(
+    // Doi mau muot khi da chon (xanh = dung, do = sai).
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: color?.withValues(alpha: 0.12) ?? Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: color ?? outline, width: color == null ? 1 : 2),
+        border: Border.all(color: color ?? outline, width: color == null ? 1 : 2),
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 52),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(children: [
-              CircleAvatar(radius: 13, child: Text(letter, style: const TextStyle(fontSize: 12))),
-              const SizedBox(width: 12),
-              Expanded(child: RichContent(text, style: const TextStyle(fontSize: 15, color: Color(0xFF262626)))),
-            ]),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 260),
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: color ?? const Color(0xFFFFF1F0), shape: BoxShape.circle),
+                  child: Text(letter,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color == null ? const Color(0xFFD01628) : Colors.white)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: RichContent(text, style: const TextStyle(fontSize: 15, color: Color(0xFF262626)))),
+              ]),
+            ),
           ),
         ),
       ),

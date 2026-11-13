@@ -6,6 +6,7 @@ import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/blocks/block_renderer.dart';
+import '../widgets/motion.dart';
 import 'tutor_chat_screen.dart';
 import 'tutor_sheet.dart';
 
@@ -127,15 +128,17 @@ class _LessonScreenState extends State<LessonScreen> {
       body = const Center(
         child: Padding(
           padding: EdgeInsets.all(32),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            SizedBox(width: 56, height: 56, child: CircularProgressIndicator(strokeWidth: 5)),
-            SizedBox(height: 20),
-            Eyebrow('AI đang soạn bài'),
-            SizedBox(height: 6),
-            Text('Chọn bài giảng, bài tập và mô phỏng phù hợp…', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            SizedBox(height: 6),
-            Text('Thường mất 15–40 giây', style: TextStyle(color: AppColors.muted)),
-          ]),
+          child: AiThinking(
+            eyebrow: 'AI đang soạn bài',
+            hint: 'Thường mất 10–40 giây',
+            messages: [
+              'Đọc lại các nguồn của bạn…',
+              'Chọn ý chính cho bài giảng…',
+              'Chọn mô phỏng phù hợp với bài…',
+              'Soạn câu hỏi có trích nguồn…',
+              'Kiểm tra công thức và đáp án…',
+            ],
+          ),
         ),
       );
     } else if (_error != null && blocks == null) {
@@ -156,10 +159,10 @@ class _LessonScreenState extends State<LessonScreen> {
     } else {
       final graded = l.gradedCount;
       body = ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 120), children: [
-        Text(l.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+        Text(l.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)).enter(context),
         const SizedBox(height: 8),
         if (graded > 0) ...[
-          LinearProgressIndicator(value: l.results.length / graded, minHeight: 6, borderRadius: BorderRadius.circular(4)),
+          AnimatedBar(value: l.results.length / graded, height: 6),
           const SizedBox(height: 4),
           Text('Đã làm ${l.results.length}/$graded câu · đúng ${l.correctCount}', style: const TextStyle(fontSize: 12, color: AppColors.muted)),
         ],
@@ -171,7 +174,7 @@ class _LessonScreenState extends State<LessonScreen> {
             lesson: l,
             onAnswered: (ok, chosen, correct) => s.recordResult(l, i, ok),
             onTutor: (chosen, correct) => showTutorSheet(context, blocks[i], chosen, correct, onAskMore: (q) => _openChat(c, l, q)),
-          ),
+          ).enter(context, index: i + 1),
         if (l.isDone) _ResultCard(lesson: l),
         const SizedBox(height: 12),
         _ExercisePanel(
@@ -269,20 +272,30 @@ class _ResultCard extends StatelessWidget {
       for (final e in lesson.results.entries)
         if (!e.value && e.key < blocks.length && blocks[e.key].topic.isNotEmpty) blocks[e.key].topic,
     };
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(appRadius)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Eyebrow('Kết quả bài học', color: Color(0xFFFFD6DA)),
-        const SizedBox(height: 4),
-        Text('Đúng ${lesson.correctCount}/${lesson.gradedCount} câu',
-            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
-        Text(
-          weak.isEmpty ? 'Tuyệt vời! Bạn đã nắm chắc bài này.' : 'Cần ôn lại: ${weak.join(', ')}',
-          style: const TextStyle(color: Colors.white),
-        ),
+    final ratio = lesson.gradedCount == 0 ? 0.0 : lesson.correctCount / lesson.gradedCount;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Stack(clipBehavior: Clip.none, children: [
+        HeroBackground(
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Eyebrow('Kết quả bài học', color: Color(0xFFFFE3E6)),
+                const SizedBox(height: 4),
+                Text('Đúng ${lesson.correctCount}/${lesson.gradedCount} câu',
+                    style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text(
+                  weak.isEmpty ? 'Tuyệt vời! Bạn đã nắm chắc bài này 🏆' : 'Cần ôn lại: ${weak.join(', ')}',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ]),
+            ),
+            const SizedBox(width: 12),
+            ProgressRing(value: ratio, size: 70, stroke: 7, color: Colors.white, track: Colors.white.withValues(alpha: 0.25)),
+          ]),
+        ).correctPop(context),
+        if (ratio >= 0.7) const Positioned(right: 0, top: -40, child: CelebrateBurst(size: 180)),
       ]),
     );
   }

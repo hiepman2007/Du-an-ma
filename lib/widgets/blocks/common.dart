@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/models.dart';
+import '../motion.dart';
 import '../rich_content.dart';
 import '../../theme.dart';
 
@@ -91,38 +92,63 @@ class SourceNote extends StatelessWidget {
 }
 
 /// Phan hoi sau khi tra loi: dung/sai + giai thich.
-class AnswerFeedback extends StatelessWidget {
+/// Chuyen dong co muc dich: dung -> bat len + phao giay + rung nhe; sai -> lac + rung manh hon.
+class AnswerFeedback extends StatefulWidget {
   const AnswerFeedback({super.key, required this.correct, this.explanation, this.onTutor});
   final bool correct;
   final String? explanation;
   final VoidCallback? onTutor;
 
   @override
+  State<AnswerFeedback> createState() => _AnswerFeedbackState();
+}
+
+class _AnswerFeedbackState extends State<AnswerFeedback> {
+  @override
+  void initState() {
+    super.initState();
+    answerHaptic(widget.correct);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color = correct ? Colors.green.shade700 : Colors.red.shade700;
-    return Container(
+    final correct = widget.correct;
+    final color = correct ? AppColors.success : AppColors.danger;
+    final box = Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(correct ? Icons.check_circle : Icons.cancel, color: color),
           const SizedBox(width: 8),
-          Text(correct ? 'Chính xác!' : 'Chưa đúng', style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+          Expanded(
+            child: Text(correct ? 'Chính xác! Giỏi lắm 🎉' : 'Chưa đúng — thử nghĩ lại nhé',
+                style: TextStyle(color: color, fontWeight: FontWeight.w800)),
+          ),
         ]),
-        if (correct && explanation != null && explanation!.isNotEmpty)
-          Padding(padding: const EdgeInsets.only(top: 6), child: RichContent(explanation!)),
-        if (!correct && onTutor != null)
+        if (correct && widget.explanation != null && widget.explanation!.isNotEmpty)
+          Padding(padding: const EdgeInsets.only(top: 6), child: RichContent(widget.explanation!)),
+        if (!correct && widget.onTutor != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: FilledButton.tonalIcon(
-              onPressed: onTutor,
+              onPressed: widget.onTutor,
               icon: const Icon(Icons.psychology_alt_outlined),
               label: const Text('Gia sư AI gợi ý'),
             ),
           ),
       ]),
     );
+    if (!correct) return box.wrongShake(context);
+    return Stack(clipBehavior: Clip.none, children: [
+      box.correctPop(context),
+      const Positioned(left: -40, top: -50, child: CelebrateBurst(size: 140)),
+    ]);
   }
 }
