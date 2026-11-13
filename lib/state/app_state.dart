@@ -53,35 +53,35 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
-  /// Buoc 1 + 2: (tai tai lieu len) -> AI lap lo trinh. onStep bao tien trinh cho man hinh cho.
+  /// Bien nguon nhap (file chua tai len / van ban / web) thanh nguon cua khoa hoc. File thi tai len server.
+  Future<CourseSource> _materialize(SourceDraft d) async {
+    switch (d.kind) {
+      case SourceKind.file:
+        final up = await api.upload(filename: d.title, mimeType: d.mimeType!, bytes: d.bytes!);
+        return CourseSource(id: 'file:${up['fileId']}', kind: SourceKind.file, title: d.title, fileId: up['fileId'], mimeType: d.mimeType);
+      case SourceKind.text:
+        return CourseSource(id: 'text:${_uuid.v4()}', kind: SourceKind.text, title: d.title, text: d.text);
+      case SourceKind.web:
+        return CourseSource.fromWeb(d.web!);
+    }
+  }
+
+  /// Buoc 1 + 2: tai cac nguon len -> AI lap lo trinh tu toan bo nguon. onStep bao tien trinh.
   Future<Course> createCourse({
     required String goal,
-    String? fileName,
-    String? mimeType,
-    List<int>? bytes,
-    String? text,
-    List<WebSource> sources = const [],
+    required List<SourceDraft> drafts,
+    bool allowWeb = false,
     void Function(String step)? onStep,
   }) async {
-    String? fileId;
-    if (bytes != null && fileName != null && mimeType != null) {
-      onStep?.call('Đang tải tài liệu lên…');
-      final up = await api.upload(filename: fileName, mimeType: mimeType, bytes: bytes);
-      fileId = up['fileId'];
+    final sources = <CourseSource>[];
+    final files = drafts.where((d) => d.kind == SourceKind.file).length;
+    var done = 0;
+    for (final d in drafts) {
+      if (d.kind == SourceKind.file) onStep?.call('Đang tải tài liệu lên (${++done}/$files)…');
+      sources.add(await _materialize(d));
     }
-    onStep?.call('AI đang đọc tài liệu và lên lộ trình…');
-    final draft = Course(
-      id: _uuid.v4(),
-      title: '',
-      goal: goal,
-      createdAt: DateTime.now(),
-      lessons: [],
-      fileId: fileId,
-      mimeType: mimeType,
-      fileName: fileName,
-      text: text,
-      sources: sources,
-    );
+    onStep?.call('AI đang đọc ${sources.length} nguồn và lên lộ trình…');
+    final draft = Course(id: _uuid.v4(), title: '', goal: goal, createdAt: DateTime.now(), lessons: [], sources: sources);
     final out = await api.outline({'role': _roleId, 'goal': goal, ...draft.materialJson()});
     final course = Course(
       id: draft.id,
@@ -91,16 +91,41 @@ class AppState extends ChangeNotifier {
       subject: out['subject'] ?? '',
       createdAt: draft.createdAt,
       lessons: ((out['lessons'] as List?) ?? []).map((e) => Lesson.fromJson(Map<String, dynamic>.from(e))).toList(),
-      fileId: fileId,
-      mimeType: mimeType,
-      fileName: fileName,
-      text: text,
       sources: sources,
+      allowWeb: allowWeb,
     );
     courses.insert(0, course);
     notifyListeners();
     await _save();
     return course;
+  }
+
+  // --- Quan ly nguon kieu NotebookLM ---
+  Future<void> addSources(Course c, List<SourceDraft> drafts) async {
+    for (final d in drafts) {
+      final s = await _materialize(d);
+      if (!c.sources.any((x) => x.id == s.id)) c.sources.add(s);
+    }
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> setSourceEnabled(Course c, CourseSource s, bool on) async {
+    s.enabled = on;
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> removeSource(Course c, CourseSource s) async {
+    c.sources.remove(s);
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> setAllowWeb(Course c, bool on) async {
+    c.allowWeb = on;
+    notifyListeners();
+    await _save();
   }
 
   Future<void> generateLesson(Course course, Lesson lesson) async {
@@ -146,9 +171,11 @@ class AppState extends ChangeNotifier {
   }
 
   /// Gia su hoi dap: them tin nguoi hoc, goi AI, them cau tra loi (chuoi khoi). Loi thi bo tin nguoi hoc va nem loi.
-  Future<void> ask(Course course, Lesson lesson, String question) async {
+  /// [webSearch]: cho phep tra cuu them tren mang (mac dinh lay theo cai dat cua khoa hoc).
+  Future<void> ask(Course course, Lesson lesson, String question, {bool? webSearch}) async {
+    final web = webSearch ?? course.allowWeb;
     final history = lesson.chat.map((m) => {'from': m.fromUser ? 'user' : 'tutor', 'text': m.plainText}).toList();
-    final userMsg = ChatMessage(fromUser: true, text: question);
+    final userMsg = ChatMessage(fromUser: true, text: question, webMode: web ? 'requested' : 'off');
     lesson.chat.add(userMsg);
     notifyListeners();
     try {
@@ -158,9 +185,15 @@ class AppState extends ChangeNotifier {
         'lessonTitle': lesson.title,
         'question': question,
         'history': history,
+        'webSearch': web,
         ...course.materialJson(),
       });
-      lesson.chat.add(ChatMessage(fromUser: false, blocks: Block.parseList(out['blocks'])));
+      lesson.chat.add(ChatMessage(
+        fromUser: false,
+        blocks: Block.parseList(out['blocks']),
+        web: ((out['web'] as List?) ?? []).whereType<Map>().map((e) => WebSource.fromJson(Map<String, dynamic>.from(e))).toList(),
+        webMode: out['webMode'] ?? 'off',
+      ));
     } catch (_) {
       lesson.chat.remove(userMsg);
       notifyListeners();
@@ -266,4 +299,31 @@ class AppState extends ChangeNotifier {
   int get totalLessonsGenerated => courses.fold(0, (s, c) => s + c.lessons.where((l) => l.blocks != null).length);
   int get totalAnswered => courses.fold(0, (s, c) => s + c.lessons.fold(0, (t, l) => t + l.results.length));
   int get totalCorrect => courses.fold(0, (s, c) => s + c.lessons.fold(0, (t, l) => t + l.correctCount));
+}
+
+/// Nguon nguoi dung vua them (chua tai len): file (bytes), van ban, hoac trang web tim duoc.
+class SourceDraft {
+  SourceDraft.file({required this.title, required this.mimeType, required this.bytes})
+      : kind = SourceKind.file,
+        text = null,
+        web = null;
+  SourceDraft.text({this.title = 'Văn bản dán vào', required this.text})
+      : kind = SourceKind.text,
+        mimeType = null,
+        bytes = null,
+        web = null;
+  SourceDraft.web(WebSource this.web)
+      : kind = SourceKind.web,
+        title = web.title,
+        mimeType = null,
+        bytes = null,
+        text = null;
+
+  final SourceKind kind;
+  final String title;
+  final String? mimeType, text;
+  final List<int>? bytes;
+  final WebSource? web;
+
+  int get sizeBytes => bytes?.length ?? 0;
 }

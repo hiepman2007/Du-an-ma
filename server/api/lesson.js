@@ -8,11 +8,11 @@ import { resolveImages } from '../lib/images.js';
 
 // Body: { role, course:{title,subject?,lessons[]}, lessonId, fileId?, mimeType?, text?, sources? } -> { title, blocks[] }
 export default wrap(async (req, res) => {
-  const { role, course, lessonId, fileId, mimeType, text, sources } = req.body || {};
+  const { role, course, lessonId, files, fileId, mimeType, text, sources } = req.body || {};
   const lesson = course?.lessons?.find((l) => l.id === lessonId);
   if (!lesson) throw fail(400, 'Khong tim thay bai hoc');
   const parts = buildParts({
-    fileId, mimeType, text, sources,
+    files, fileId, mimeType, text, sources,
     instruction: [
       `Khóa học: ${course.title}${course.subject ? ` (môn ${course.subject})` : ''}.`,
       `Hãy tạo bài học "${lesson.title}". Mục tiêu: ${(lesson.objectives || []).join('; ')}.`,

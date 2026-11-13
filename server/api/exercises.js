@@ -10,11 +10,11 @@ const EXERCISE_TYPES = ['mcq', 'true_false', 'fill_blank', 'step_solver', 'match
 // Body: { role, subject?, lessonTitle, objectives?, difficulty: easy|medium|hard, count?, existing?: [string],
 //         fileId?, mimeType?, text?, sources? } -> { blocks[] }
 export default wrap(async (req, res) => {
-  const { role, subject, lessonTitle, objectives, difficulty, count, existing, fileId, mimeType, text, sources } = req.body || {};
+  const { role, subject, lessonTitle, objectives, difficulty, count, existing, files, fileId, mimeType, text, sources } = req.body || {};
   if (!lessonTitle) throw fail(400, 'Thieu ten bai hoc');
   const n = Math.min(Math.max(Number(count) || 5, 1), 8);
   const parts = buildParts({
-    fileId, mimeType, text, sources,
+    files, fileId, mimeType, text, sources,
     instruction: [
       `Bài: ${lessonTitle}${subject ? ` (môn ${subject})` : ''}. Mục tiêu: ${(objectives || []).join('; ')}.`,
       `Hãy soạn đúng ${n} câu luyện tập.`,

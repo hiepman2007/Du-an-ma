@@ -35,3 +35,22 @@ test('repairLatex sua ky tu dieu khien trong cong thuc', () => {
   assert.equal(fixed.c, 'Dong 1' + NL + 'Dong 2'); // xuong dong that ngoai cong thuc giu nguyen
   assert.equal(fixed.d.source, 'a' + TAB + 'b'); // code giu nguyen
 });
+
+test('pham vi nguon kieu NotebookLM: mac dinh chi dung nguon da nap', () => {
+  assert.ok(askSystem('student', { web: false, hasSources: true }).includes('CHỈ dựa vào các NGUỒN NGƯỜI HỌC ĐÃ NẠP'));
+  assert.ok(askSystem('student', { web: true }).includes('TRA CỨU TRÊN WEB'));
+});
+
+test('buildParts nhan nhieu file nguon', async () => {
+  const { buildParts } = await import('./lib/content.js');
+  const parts = buildParts({ files: [{ fileId: 'a', mimeType: 'application/pdf' }, { fileId: 'b', mimeType: 'image/png' }], text: 'x', instruction: 'q' });
+  assert.deepEqual(parts.map((p) => p.kind), ['file', 'file', 'text', 'text']);
+});
+
+test('tu khoa tra cuu: bo tu hoi dau cau, giu ten rieng', async () => {
+  const { properNouns, keywordsOf } = await import('./lib/wiki.js');
+  assert.equal(properNouns('Ai là người phát hiện ra quang hợp?'), '');
+  assert.equal(properNouns('Georg Ohm sinh năm nào?'), 'Georg Ohm');
+  assert.equal(properNouns('Chiến dịch Điện Biên Phủ diễn ra năm nào?'), 'Điện Biên Phủ');
+  assert.equal(keywordsOf('Ai là người phát hiện ra quang hợp?'), 'phát hiện quang hợp');
+});

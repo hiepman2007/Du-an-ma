@@ -43,7 +43,10 @@ void main() {
             },
           },
           {'type': 'true_false', 'topic': 'Đỉnh parabol', 'body': r'Với $a < 0$, đỉnh là điểm cao nhất.', 'answer_bool': true},
-        ])),
+        ]), webMode: 'wikipedia', web: [
+          WebSource(title: 'Parabol (hình học) – bài viết rất dài để thử tràn dòng', url: 'https://vi.wikipedia.org/wiki/Parabol', domain: 'vi.wikipedia.org', snippet: '', trusted: true),
+          WebSource(title: 'Blog toán', url: 'https://example.com/a', domain: 'example.com', snippet: '', trusted: false),
+        ]),
       ]);
     final state = AppState()
       ..loaded = true

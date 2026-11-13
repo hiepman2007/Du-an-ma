@@ -13,7 +13,9 @@ Ba chức năng chính (tập trung, không mở rộng thêm trước khi 3 cá
 2. **Deep interactive**: danh mục bộ máy mô phỏng 3 tầng (xem mục Cấu trúc).
 3. **Gia sư hỏi đáp kiểu ChatGPT** (`lib/screens/tutor_chat_screen.dart`, `/api/ask`): câu trả lời là chuỗi khối do AI chọn (chữ + LaTeX, ảnh thật, đồ thị/mô phỏng, giải từng bước, code demo, câu kiểm tra), lưu theo bài (`Lesson.chat`).
 Công thức hiển thị bằng **LaTeX** (`$...$`, `$$...$$`) qua `lib/widgets/rich_content.dart` (flutter_math_fork); server sửa lỗi escape LaTeX trong JSON (`repairLatex` ở `server/lib/ai.js`).
-Phụ (giữ, không phát triển thêm): tìm nguồn web, tab Ôn tập, thống kê, khóa mẫu.
+**Nguồn kiểu NotebookLM**: mỗi khóa học có một danh sách nguồn chung `Course.sources` (`CourseSource`: file PDF/ảnh, văn bản, trang web), tích bật/tắt từng nguồn; AI chỉ dùng nguồn đang bật (`materialJson`). Nút "Tìm nguồn trên mạng" (Discover) thêm trang web vào cùng danh sách. Công tắc `allowWeb` (mặc định **tắt**): gia sư chỉ trả lời từ nguồn đã nạp, thiếu thì nói "Tài liệu của bạn chưa đề cập…"; bật thì được tra web và ghi nguồn [W1]... (cũng bật/tắt được ngay trong khung chat). Widget: `lib/widgets/source_widgets.dart`.
+**Tra cứu web**: `server/lib/websearch.js` thử công cụ tìm kiếm của nhà cung cấp AI trước (Gemini Google Search / OpenAI web_search); lỗi (vd Gemini gói miễn phí không có Google Search → 429) thì dự phòng **Wikipedia** (`server/lib/wiki.js`, API công khai, có lọc độ liên quan). Bật Google Search thật cho Gemini: liên kết thanh toán trong AI Studio (tối thiểu 5 USD trả trước), được 5.000 lượt tìm/tháng miễn phí.
+Phụ (giữ, không phát triển thêm): tab Ôn tập, thống kê, khóa mẫu.
 
 ## Công nghệ
 - Flutter + Dart, chỉ nhắm Android (thư mục `web/` chỉ dùng để xem giao diện nhanh trên trình duyệt, không dùng để demo).

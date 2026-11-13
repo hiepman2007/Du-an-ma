@@ -301,6 +301,73 @@ class Lesson {
       {'id': id, 'title': title, 'objectives': objectives, 'minutes': minutes, 'interaction_hint': interactionHint};
 }
 
+enum SourceKind { file, text, web }
+
+/// Mot nguon cua khoa hoc (kieu NotebookLM): file PDF/anh, van ban dan vao, hoac trang web.
+/// [enabled] = dang duoc chon: AI chi dung cac nguon dang bat.
+class CourseSource {
+  CourseSource({
+    required this.id,
+    required this.kind,
+    required this.title,
+    this.fileId,
+    this.mimeType,
+    this.text,
+    this.url,
+    this.domain = '',
+    this.snippet = '',
+    this.trusted = false,
+    this.enabled = true,
+  });
+
+  final String id;
+  final SourceKind kind;
+  final String title;
+  final String? fileId, mimeType, text, url;
+  final String domain, snippet;
+  final bool trusted;
+  bool enabled;
+
+  factory CourseSource.fromWeb(WebSource w) => CourseSource(
+        id: 'web:${w.url}',
+        kind: SourceKind.web,
+        title: w.title,
+        url: w.url,
+        domain: w.domain,
+        snippet: w.snippet,
+        trusted: w.trusted,
+      );
+
+  WebSource toWeb() => WebSource(title: title, url: url ?? '', domain: domain, snippet: snippet, trusted: trusted);
+
+  factory CourseSource.fromJson(Map<String, dynamic> j) => CourseSource(
+        id: j['id'] ?? '${j['kind']}:${j['title']}',
+        kind: SourceKind.values.firstWhere((k) => k.name == j['kind'], orElse: () => SourceKind.text),
+        title: j['title'] ?? '',
+        fileId: j['fileId'],
+        mimeType: j['mimeType'],
+        text: j['text'],
+        url: j['url'],
+        domain: j['domain'] ?? '',
+        snippet: j['snippet'] ?? '',
+        trusted: j['trust'] == 'trusted' || j['trusted'] == true,
+        enabled: j['enabled'] != false,
+      );
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'kind': kind.name,
+        'title': title,
+        'fileId': fileId,
+        'mimeType': mimeType,
+        'text': text,
+        'url': url,
+        'domain': domain,
+        'snippet': snippet,
+        'trust': trusted ? 'trusted' : 'check',
+        'enabled': enabled,
+      };
+}
+
 class Course {
   Course({
     required this.id,
@@ -310,12 +377,9 @@ class Course {
     required this.lessons,
     this.language = '',
     this.subject = '',
-    this.fileId,
-    this.mimeType,
-    this.fileName,
-    this.text,
-    this.sources = const [],
-  });
+    List<CourseSource>? sources,
+    this.allowWeb = false,
+  }) : sources = sources ?? [];
 
   final String id;
   String title;
@@ -325,16 +389,25 @@ class Course {
   final String subject;
   final DateTime createdAt;
   final List<Lesson> lessons;
-  final String? fileId, mimeType, fileName, text;
-  final List<WebSource> sources;
+
+  /// Tat ca nguon cua khoa hoc (file, van ban, web), bat/tat duoc tung nguon.
+  final List<CourseSource> sources;
+
+  /// Mac dinh cho gia su: co duoc tra cuu them tren mang khong (mac dinh tat: chi dua vao nguon da nap).
+  bool allowWeb;
+
+  List<CourseSource> get enabledSources => sources.where((s) => s.enabled).toList();
 
   int get doneLessons => lessons.where((l) => l.isDone).length;
 
   String get sourceLabel {
     if (id == 'sample-ohm') return 'Khóa mẫu';
-    if (fileName != null) return fileName!;
-    if (sources.isNotEmpty) return '${sources.length} nguồn trên mạng';
-    return 'Văn bản dán vào';
+    final on = enabledSources;
+    if (on.length == 1) return on.first.title;
+    final files = on.where((s) => s.kind == SourceKind.file).length;
+    final web = on.where((s) => s.kind == SourceKind.web).length;
+    final text = on.where((s) => s.kind == SourceKind.text).length;
+    return [if (files > 0) '$files tài liệu', if (web > 0) '$web nguồn web', if (text > 0) '$text văn bản'].join(' · ');
   }
 
   /// Chu de yeu: chu de cua cac cau tra loi sai.
@@ -358,12 +431,24 @@ class Course {
         subject: j['subject'] ?? '',
         createdAt: DateTime.tryParse(j['createdAt'] ?? '') ?? DateTime.now(),
         lessons: ((j['lessons'] as List?) ?? []).map((e) => Lesson.fromJson(Map<String, dynamic>.from(e))).toList(),
-        fileId: j['fileId'],
-        mimeType: j['mimeType'],
-        fileName: j['fileName'],
-        text: j['text'],
-        sources: ((j['sources'] as List?) ?? []).map((e) => WebSource.fromJson(Map<String, dynamic>.from(e))).toList(),
+        sources: _sourcesFromJson(j),
+        allowWeb: j['allowWeb'] == true,
       );
+
+  /// Doc nguon; ho tro du lieu ban cu (fileId/fileName/text/sources web rieng le).
+  static List<CourseSource> _sourcesFromJson(Map<String, dynamic> j) {
+    final raw = (j['sources'] as List?) ?? [];
+    if (raw.isNotEmpty && raw.first is Map && (raw.first as Map).containsKey('kind')) {
+      return raw.whereType<Map>().map((e) => CourseSource.fromJson(Map<String, dynamic>.from(e))).toList();
+    }
+    return [
+      if (j['fileId'] != null)
+        CourseSource(id: 'file:${j['fileId']}', kind: SourceKind.file, title: j['fileName'] ?? 'Tài liệu', fileId: j['fileId'], mimeType: j['mimeType']),
+      if (j['text'] != null) CourseSource(id: 'text:0', kind: SourceKind.text, title: 'Văn bản dán vào', text: j['text']),
+      ...raw.whereType<Map>().map((e) => CourseSource.fromWeb(WebSource.fromJson(Map<String, dynamic>.from(e)))),
+    ];
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
@@ -372,30 +457,39 @@ class Course {
         'subject': subject,
         'createdAt': createdAt.toIso8601String(),
         'lessons': lessons.map((l) => l.toJson()).toList(),
-        'fileId': fileId,
-        'mimeType': mimeType,
-        'fileName': fileName,
-        'text': text,
         'sources': sources.map((s) => s.toJson()).toList(),
+        'allowWeb': allowWeb,
       };
 
-  /// Phan dau vao tai lieu gui kem moi lan goi AI.
-  Map<String, dynamic> materialJson() => {
-        if (fileId != null) 'fileId': fileId,
-        if (mimeType != null) 'mimeType': mimeType,
-        if (text != null) 'text': text,
-        if (sources.isNotEmpty) 'sources': sources.map((s) => s.toJson()).toList(),
-      };
+  /// Dau vao gui kem moi lan goi AI: chi cac nguon DANG BAT (kieu NotebookLM).
+  Map<String, dynamic> materialJson() {
+    final on = enabledSources;
+    final files = on.where((s) => s.kind == SourceKind.file && s.fileId != null).toList();
+    final texts = on.where((s) => s.kind == SourceKind.text && (s.text ?? '').isNotEmpty).toList();
+    final web = on.where((s) => s.kind == SourceKind.web && s.url != null).toList();
+    return {
+      if (files.isNotEmpty) 'files': [for (final f in files) {'fileId': f.fileId, 'mimeType': f.mimeType, 'name': f.title}],
+      if (texts.isNotEmpty) 'text': texts.map((t) => texts.length > 1 ? '### ${t.title}\n${t.text}' : t.text).join('\n\n'),
+      if (web.isNotEmpty) 'sources': [for (final w in web) w.toWeb().toJson()],
+    };
+  }
 }
 
 /// Mot tin nhan trong cuoc hoi dap voi gia su AI.
 /// Tin cua nguoi hoc: chi co [text]. Tin cua gia su: chuoi khoi [blocks] (hien bang BlockRenderer).
 class ChatMessage {
-  ChatMessage({required this.fromUser, this.text = '', this.blocks = const [], DateTime? at}) : at = at ?? DateTime.now();
+  ChatMessage({required this.fromUser, this.text = '', this.blocks = const [], this.web = const [], this.webMode = 'off', DateTime? at})
+      : at = at ?? DateTime.now();
   final bool fromUser;
   final String text;
   final List<Block> blocks;
   final DateTime at;
+
+  /// Nguon web da tra cuu cho cau tra loi nay (rong neu chi dung nguon da nap).
+  final List<WebSource> web;
+
+  /// 'off' (chi nguon da nap), 'search' (cong cu tim kiem cua AI), 'wikipedia' (du phong), 'requested' (tin nguoi hoc co bat web).
+  final String webMode;
 
   /// Phan chu de gui lai lam ngu canh (tom tat cau tra loi cua gia su).
   String get plainText => fromUser
@@ -406,12 +500,16 @@ class ChatMessage {
         fromUser: j['from'] == 'user',
         text: j['text'] ?? '',
         blocks: Block.parseList(j['blocks']),
+        web: ((j['web'] as List?) ?? []).whereType<Map>().map((e) => WebSource.fromJson(Map<String, dynamic>.from(e))).toList(),
+        webMode: j['webMode'] ?? 'off',
         at: DateTime.tryParse(j['at'] ?? ''),
       );
   Map<String, dynamic> toJson() => {
         'from': fromUser ? 'user' : 'tutor',
         'text': text,
         'blocks': blocks.map((b) => b.toJson()).toList(),
+        'web': web.map((w) => w.toJson()).toList(),
+        'webMode': webMode,
         'at': at.toIso8601String(),
       };
 }

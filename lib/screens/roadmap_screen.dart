@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
+import '../services/api_client.dart';
+import '../widgets/source_widgets.dart';
 import 'lesson_screen.dart';
 
 /// Lo trinh khoa hoc: danh sach bai, keo de doi thu tu, sua ten, xoa bai.
@@ -70,6 +72,8 @@ class RoadmapScreen extends StatelessWidget {
         LinearProgressIndicator(value: total == 0 ? 0 : c.doneLessons / total, minHeight: 8, borderRadius: BorderRadius.circular(4)),
         const SizedBox(height: 6),
         Text('Hoàn thành ${c.doneLessons}/$total bài', style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+        const SizedBox(height: 14),
+        _SourcesPanel(course: c),
         const SizedBox(height: 18),
         const SectionHeader(eyebrow: 'Lộ trình do AI đề xuất', title: 'Các bài học'),
         const Text('Giữ và kéo để đổi thứ tự, chạm ⋮ để sửa hoặc xóa bài.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
@@ -151,6 +155,81 @@ class _LessonTile extends StatelessWidget {
           ]),
         ),
       ),
+    );
+  }
+}
+
+/// Khung Nguon kieu NotebookLM: tich chon nguon AI duoc dung, them nguon moi, bat/tat tra cuu web.
+class _SourcesPanel extends StatefulWidget {
+  const _SourcesPanel({required this.course});
+  final Course course;
+  @override
+  State<_SourcesPanel> createState() => _SourcesPanelState();
+}
+
+class _SourcesPanelState extends State<_SourcesPanel> {
+  bool _open = false;
+  bool _adding = false;
+
+  Future<void> _add(List<SourceDraft> drafts) async {
+    setState(() => _adding = true);
+    try {
+      await context.read<AppState>().addSources(widget.course, drafts);
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+    if (mounted) setState(() => _adding = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.course;
+    final s = context.read<AppState>();
+    final on = c.enabledSources.length;
+    return Card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        ListTile(
+          onTap: () => setState(() => _open = !_open),
+          leading: const Icon(Icons.library_books_outlined, color: AppColors.primary),
+          title: Text('Nguồn ($on/${c.sources.length} đang dùng)', style: const TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Text(c.allowWeb ? 'Gia sư được tra cứu thêm trên mạng' : 'Gia sư chỉ dựa vào các nguồn đã chọn'),
+          trailing: Icon(_open ? Icons.expand_less : Icons.expand_more),
+        ),
+        if (_open)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              for (final src in c.sources)
+                SourceRow(
+                  kind: src.kind,
+                  title: src.title,
+                  mimeType: src.mimeType,
+                  url: src.url,
+                  trusted: src.kind == SourceKind.web ? src.trusted : null,
+                  subtitle: SourceRow.describe(src.kind, mimeType: src.mimeType, domain: src.domain, text: src.text),
+                  enabled: src.enabled,
+                  onToggle: (v) => s.setSourceEnabled(c, src, v),
+                  onRemove: c.sources.length > 1 ? () => s.removeSource(c, src) : null,
+                ),
+              if (on == 0)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Text('Chưa chọn nguồn nào: hãy tích ít nhất một nguồn.', style: TextStyle(color: AppColors.danger)),
+                ),
+              const SizedBox(height: 4),
+              if (_adding)
+                const Padding(padding: EdgeInsets.all(8), child: LinearProgressIndicator())
+              else
+                SourceAddBar(onAdd: _add),
+              WebSwitch(value: c.allowWeb, onChanged: (v) => s.setAllowWeb(c, v)),
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text('Bài học, bộ đề và gia sư dùng các nguồn đang được tích. Bài đã tạo không đổi; bấm "Tạo lại bài" để cập nhật theo nguồn mới.',
+                    style: TextStyle(fontSize: 12, color: AppColors.muted)),
+              ),
+            ]),
+          ),
+      ]),
     );
   }
 }

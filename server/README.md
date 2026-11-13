@@ -11,7 +11,7 @@ Giữ API key, ép đầu ra JSON theo schema, kiểm tra khối trước khi tr
 | Key | `GEMINI_API_KEY` (aistudio.google.com) | `OPENAI_API_KEY` |
 | Model mặc định | `gemini-3.5-flash-lite` | `gpt-6-luna` |
 | File tải lên | Gemini Files API, **giữ 48 giờ** (khóa học cũ hơn 48 giờ sẽ không sinh thêm bài được) | OpenAI Files, giữ đến khi xóa |
-| Tìm nguồn web | `google_search` (link có thể là link chuyển hướng của Google; server lấy tên miền thật từ tiêu đề) | `web_search` |
+| Tìm nguồn web | `google_search` (link có thể là link chuyển hướng của Google; server lấy tên miền thật từ tiêu đề). **Không có ở gói miễn phí** → server tự dùng Wikipedia. Bật thật: AI Studio → Projects/API keys → "Set up billing", trả trước ≥ 5 USD → 5.000 lượt tìm/tháng miễn phí, sau đó 14 USD/1.000 lượt | `web_search` |
 | Lưu ý | Gói miễn phí giới hạn số lần gọi/phút; dữ liệu gói miễn phí có thể được Google dùng để cải thiện sản phẩm | Dùng credits BTC cấp |
 
 Code: `lib/ai.js` (chọn nhà cung cấp, model, ghi chi phí), `lib/providers/gemini.js`, `lib/providers/openai.js`.
@@ -42,7 +42,7 @@ Giới hạn: body tối đa ~4.5MB (PDF ≤ 4MB), mỗi request tối đa 60 gi
 | `POST /api/course/outline` | Lên lộ trình khóa học |
 | `POST /api/lesson` | Sinh bài học = chuỗi khối widget |
 | `POST /api/exercises` | Bộ đề luyện: thêm N câu theo độ khó easy/medium/hard, không trùng câu đã có |
-| `POST /api/ask` | Gia sư hỏi đáp: câu trả lời là 1–4 khối (chữ + LaTeX, ảnh, đồ thị/mô phỏng, giải từng bước, code demo) |
+| `POST /api/ask` | Gia sư hỏi đáp: câu trả lời là 1–4 khối (chữ + LaTeX, ảnh, đồ thị/mô phỏng, giải từng bước, code demo). `webSearch: false` (mặc định) = chỉ dựa vào nguồn đã nạp (kiểu NotebookLM); `true` = được tra web, trả về `web[]` + `webMode` (`search` hoặc `wikipedia` dự phòng) |
 | `POST /api/simulation` | Mô phỏng tùy biến: HTML tự chứa, đã chặn tài nguyên ngoài + CSP |
 | `POST /api/interactive` | Thêm khối tương tác cho một khái niệm |
 | `POST /api/explain` | Gia sư: gợi ý, giải thích, gốc lỗi |

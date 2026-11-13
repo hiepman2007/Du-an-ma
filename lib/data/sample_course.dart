@@ -197,7 +197,14 @@ Course buildSampleCourse() {
     title: 'Khóa mẫu: Lý · Hóa · Toán',
     goal: 'Xem thử các dạng bài tương tác',
     createdAt: DateTime.now(),
-    text: 'Định luật Ohm: cường độ dòng điện I = U / R. Phản ứng trao đổi trong dung dịch tạo kết tủa, khí hoặc nước. Hàm số bậc hai y = ax² + bx + c có đồ thị là parabol.',
+    sources: [
+      CourseSource(
+        id: 'text:sample',
+        kind: SourceKind.text,
+        title: 'Ghi chú khóa mẫu',
+        text: 'Định luật Ohm: cường độ dòng điện I = U / R. Phản ứng trao đổi trong dung dịch tạo kết tủa, khí hoặc nước. Hàm số bậc hai y = ax² + bx + c có đồ thị là parabol.',
+      ),
+    ],
     lessons: [
       Lesson(id: 'l1', title: 'Định luật Ohm', objectives: ['Phát biểu định luật Ohm', 'Vận dụng I = U/R', 'Nhớ đơn vị đo'], minutes: 15, blocks: blocks),
       Lesson(id: 'l3', title: 'Phòng thí nghiệm: phản ứng trong dung dịch', objectives: ['Nhận biết hiện tượng phản ứng', 'Tính theo phương trình'], minutes: 20, blocks: chemBlocks),

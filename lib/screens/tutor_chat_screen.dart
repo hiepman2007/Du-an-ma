@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/models.dart';
 import '../services/api_client.dart';
@@ -21,6 +22,9 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
   bool _sending = false;
+
+  /// null = theo cai dat cua khoa hoc (allowWeb); nguoi hoc bat/tat ngay trong chat.
+  bool? _web;
   String? _error;
 
   static const _suggestions = [
@@ -72,7 +76,7 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
     });
     _toBottom();
     try {
-      await s.ask(c, l, q);
+      await s.ask(c, l, q, webSearch: _web ?? c.allowWeb);
     } on ApiException catch (e) {
       _error = e.message;
       _input.text = q; // giu lai cau hoi de gui lai
@@ -129,6 +133,17 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
+                // Kieu NotebookLM: mac dinh chi dua vao nguon da nap; tich de cho phep tra cuu web.
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    selected: _web ?? c.allowWeb,
+                    avatar: Icon(Icons.public, size: 18, color: (_web ?? c.allowWeb) ? AppColors.primary : AppColors.muted),
+                    showCheckmark: false,
+                    label: Text((_web ?? c.allowWeb) ? 'Tra cứu web: bật' : 'Chỉ nguồn của bạn'),
+                    onSelected: (v) => setState(() => _web = v),
+                  ),
+                ),
                 for (final t in _suggestions)
                   Padding(padding: const EdgeInsets.only(right: 8), child: ActionChip(label: Text(t), onPressed: () => _send(t))),
               ],
@@ -232,14 +247,82 @@ class _TutorAnswer extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Row(children: [
-          CircleAvatar(radius: 12, backgroundColor: AppColors.primary, child: Icon(Icons.auto_awesome, size: 14, color: Colors.white)),
-          SizedBox(width: 6),
-          Eyebrow('Gia sư AI'),
+        Row(children: [
+          const CircleAvatar(radius: 12, backgroundColor: AppColors.primary, child: Icon(Icons.auto_awesome, size: 14, color: Colors.white)),
+          const SizedBox(width: 6),
+          const Eyebrow('Gia sư AI'),
+          const SizedBox(width: 8),
+          Flexible(child: _ScopeBadge(mode: message.webMode)),
         ]),
         for (final b in message.blocks)
           // Cau hoi kiem tra trong chat khong tinh vao ket qua bai hoc.
           BlockRenderer(block: b, lesson: lesson, onAnswered: (_, _, _) {}),
+        if (message.web.isNotEmpty) _WebSources(sources: message.web),
+      ]),
+    );
+  }
+}
+
+/// Cho biet cau tra loi dua tren nguon nao (kieu NotebookLM).
+class _ScopeBadge extends StatelessWidget {
+  const _ScopeBadge({required this.mode});
+  final String mode;
+  @override
+  Widget build(BuildContext context) {
+    final (icon, text) = switch (mode) {
+      'search' => (Icons.public, 'Nguồn của bạn + tra cứu web'),
+      'wikipedia' => (Icons.public, 'Nguồn của bạn + Wikipedia'),
+      _ => (Icons.lock_outline, 'Chỉ từ nguồn của bạn'),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(20)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 12, color: AppColors.muted),
+        const SizedBox(width: 4),
+        Flexible(child: Text(text, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AppColors.muted))),
+      ]),
+    );
+  }
+}
+
+/// Danh sach nguon web da tra cuu cho cau tra loi: [W1], [W2]... bam de mo link goc.
+class _WebSources extends StatelessWidget {
+  const _WebSources({required this.sources});
+  final List<WebSource> sources;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(appRadius), border: Border.all(color: AppColors.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Eyebrow('Nguồn tra cứu trên mạng'),
+        const SizedBox(height: 6),
+        for (var i = 0; i < sources.length; i++)
+          InkWell(
+            onTap: () => launchUrl(Uri.parse(sources[i].url), mode: LaunchMode.externalApplication),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(6)),
+                  child: Text('W${i + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                ),
+                const SizedBox(width: 8),
+                Icon(sources[i].trusted ? Icons.verified : Icons.help_outline, size: 14,
+                    color: sources[i].trusted ? AppColors.success : const Color(0xFFB26A00)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text('${sources[i].title} · ${sources[i].domain}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                ),
+                const Icon(Icons.open_in_new, size: 14, color: AppColors.muted),
+              ]),
+            ),
+          ),
       ]),
     );
   }

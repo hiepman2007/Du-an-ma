@@ -7,10 +7,10 @@ import { cleanBlocks } from '../lib/validate.js';
 
 // Body: { role, lessonTitle, subject?, concept, fileId?, mimeType?, text?, sources? } -> { blocks[] }
 export default wrap(async (req, res) => {
-  const { role, lessonTitle, subject, concept, fileId, mimeType, text, sources } = req.body || {};
+  const { role, lessonTitle, subject, concept, files, fileId, mimeType, text, sources } = req.body || {};
   if (!concept) throw fail(400, 'Thieu khai niem can kham pha');
   const parts = buildParts({
-    fileId, mimeType, text, sources,
+    files, fileId, mimeType, text, sources,
     instruction: `Bài học: ${lessonTitle || ''}${subject ? ` (môn ${subject})` : ''}. Khái niệm cần khám phá: ${concept}. Tạo 1-2 khối tương tác/thực nghiệm phù hợp nhất.`,
   });
   const { json } = await generateJson({

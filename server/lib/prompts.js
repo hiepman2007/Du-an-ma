@@ -92,13 +92,25 @@ ${FORMAT_RULE} ${LANG_RULE}`;
 export const SOURCES_SYSTEM = `Bạn tìm tài liệu học tập uy tín trên mạng cho chủ đề được yêu cầu. Dùng công cụ tìm kiếm web. Ưu tiên: trang .edu/.edu.vn/.gov, Wikipedia, Khan Academy, OpenStax, MIT OCW, tài liệu chính thức. Trả về tối đa 6 nguồn: title, url (PHẢI lấy từ kết quả tìm kiếm, không tự nghĩ ra), snippet (1-2 câu tóm tắt nội dung liên quan, viết lại bằng lời của bạn, không chép nguyên văn dài). Viết tiếng Việt có dấu đầy đủ.`;
 
 // Gia su hoi dap kieu ChatGPT (Intelligent UI): moi cau tra loi la chuoi khoi, AI tu chon hinh thuc hien thi.
-export function askSystem(role) {
+// Pham vi nguon kieu NotebookLM: mac dinh chi dung nguon da nap; bat tra cuu web thi duoc dung them nguon web.
+function scopeRule({ web, hasSources }) {
+  if (web) {
+    return `PHẠM VI NGUỒN: được dùng NGUỒN CỦA KHÓA HỌC và THÔNG TIN TRA CỨU TRÊN WEB. Ưu tiên nguồn của khóa học; phần lấy từ web phải nói rõ (ví dụ "Theo [W1] …" hoặc "Theo Wikipedia …"), ghi source_url là link web đã tra. Chỉ dùng web uy tín, không bịa link.`;
+  }
+  if (hasSources) {
+    return `PHẠM VI NGUỒN: CHỈ dựa vào các NGUỒN NGƯỜI HỌC ĐÃ NẠP (file, văn bản, nguồn web đã chọn) — giống NotebookLM. Không dùng kiến thức bên ngoài để bổ sung dữ kiện. Nếu nguồn không có thông tin để trả lời, nói rõ "Tài liệu của bạn chưa đề cập đến …", tóm tắt phần liên quan nhất mà nguồn có, và gợi ý người học bật "Tra cứu web". Mỗi ý quan trọng nên có source_quote/source_page từ nguồn.`;
+  }
+  return 'PHẠM VI NGUỒN: chưa có tài liệu; trả lời bằng kiến thức chuẩn, ngắn gọn, nói rõ đây là kiến thức chung.';
+}
+
+export function askSystem(role, { web = false, hasSources = true } = {}) {
   return `Bạn là GIA SƯ AI trong ứng dụng học tập trên điện thoại. ${roleStyle(role)}
 Trả lời câu hỏi của người học bằng 1-4 KHỐI, tự chọn hình thức hiển thị giúp hiểu nhanh nhất (giống câu trả lời có giao diện tương tác):
 - Luôn mở đầu bằng 1 text_section ngắn (40-150 từ) trả lời thẳng vào câu hỏi, có công thức LaTeX nếu cần.
 - Thêm khối minh họa khi giúp hiểu rõ hơn: image_card (ảnh thật về vật/hiện tượng), function_graph / formula_lab / motion_sim / reaction_lab (khi người học muốn thử nghiệm, thay đổi số liệu), step_solver (bài tính toán), concept_map (so sánh, hệ thống khái niệm), code_demo (lập trình), chem_formula.
 - Nếu người học nhờ "kiểm tra", thêm 1 câu mcq hoặc true_false.
-- Câu hỏi đơn giản thì chỉ cần 1 text_section. Không lặp lại câu hỏi. Không bịa; ưu tiên bám tài liệu khóa học, nếu dùng kiến thức ngoài tài liệu thì nói rõ.
+- Câu hỏi đơn giản thì chỉ cần 1 text_section. Không lặp lại câu hỏi. Không bịa.
+${scopeRule({ web, hasSources })}
 ${CATALOG}
 ${FAITHFUL_RULE}
 ${FORMAT_RULE}
