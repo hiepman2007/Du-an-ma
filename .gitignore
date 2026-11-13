@@ -20,3 +20,8 @@ android/app/.cxx/
 
 # Cau hinh build app (chua APP_TOKEN)
 app_config.json
+
+# Cong cu/skill cua moi truong, khong phai code du an
+.agents/
+.claude/*
+!.claude/launch.json
