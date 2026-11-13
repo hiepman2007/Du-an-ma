@@ -1,42 +1,431 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/sample_course.dart';
+import '../data/study_samples.dart';
 import '../models/models.dart';
 import '../services/api_client.dart';
 import '../services/storage.dart';
+import '../services/study_account.dart';
 
 class AppState extends ChangeNotifier {
-  AppState({ApiClient? api, Storage? storage})
-      : api = api ?? ApiClient(),
+  AppState({ApiClient? api, Storage? storage, this.account})
+      : api = api ?? ApiClient(token: () => account?.accessToken),
+        _guestStorage = storage ?? Storage(),
         _storage = storage ?? Storage();
 
   final ApiClient api;
-  final Storage _storage;
+  final StudyAccount? account;
+  final Storage _guestStorage;
+  Storage _storage;
   final _uuid = const Uuid();
+  StreamSubscription<Object?>? _authChanges;
+  String? _accountId;
+  int? _cloudRevision;
+  Future<void> _cloudWrites = Future.value();
+  String? syncError;
+  String? selectedCourseId;
+  bool _cloudDirty = false;
+  int _localVersion = 0;
+  bool get signedIn => _accountId != null;
+  bool get canImportGuest => signedIn && _guestCourses.any((row) => courses.every((c) => c.id != row['id']));
+  List<Map<String, dynamic>> _guestCourses = [];
+  final Set<String> _busy = {};
+  String? openingPrompt;
+  bool openSourcesFirst = false;
 
   bool loaded = false;
   UserRole? role;
   final List<Course> courses = [];
 
   Future<void> load() async {
-    final data = await _storage.load();
+    await _loadWorkspace(account?.userId);
+    _authChanges ??= account?.authChanges.listen((_) {
+      final id = account?.userId;
+      if (id != _accountId) unawaited(_loadWorkspace(id));
+    }, onError: (Object _) {});
+    if (account?.userId != _accountId) await _loadWorkspace(account?.userId);
+  }
+
+  Future<void> _loadWorkspace(String? id) async {
+    _accountId = id;
+    _cloudRevision = null;
+    _cloudDirty = false;
+    _localVersion = 0;
+    syncError = null;
+    loaded = false;
+    notifyListeners();
+    final store = id == null ? _guestStorage : Storage(accountId: id);
+    _storage = store;
+    var data = <String, dynamic>{};
+    try {
+      data = await store.load();
+      if (id != null) {
+        final guest = await _guestStorage.load();
+        if (_storage != store) return;
+        _guestCourses = _mapsFrom(guest['courses']);
+        final cloud = await account!.loadWorkspace();
+        if (_storage != store) return;
+        _cloudRevision = data['_pending_cloud'] == true ? data['_cloud_base_revision'] as int? : cloud.revision;
+        if (cloud.revision > 0 && data['_pending_cloud'] != true) data = cloud.snapshot;
+        _cloudDirty = data['_pending_cloud'] == true;
+        if (_cloudDirty) syncError = 'Có thay đổi chưa đồng bộ. Hãy thử lưu lại.';
+      }
+    } catch (_) {
+      if (_storage != store) return;
+      syncError = 'Chưa thể tải dữ liệu đồng bộ. Hãy thử lại khi có mạng.';
+      _cloudDirty = data['_pending_cloud'] == true;
+    }
+    if (_storage != store) return;
+    _restore(data);
+    loaded = true;
+    notifyListeners();
+  }
+
+  static List<Map<String, dynamic>> _mapsFrom(Object? value) => value is List
+      ? value.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : [];
+
+  void _restore(Map<String, dynamic> data) {
     role = UserRole.fromId(data['role']);
+    selectedCourseId = data['selected_course_id'] as String?;
     courses
       ..clear()
-      ..addAll(((data['courses'] as List?) ?? []).map((e) {
+      ..addAll(_mapsFrom(data['courses']).map((e) {
         try {
-          return Course.fromJson(Map<String, dynamic>.from(e));
+          return Course.fromJson(e);
         } catch (_) {
           return null;
         }
       }).whereType<Course>());
-    loaded = true;
-    notifyListeners();
-    api.health(); // danh thuc backend som (cold start)
   }
 
-  Future<void> _save() => _storage.save({'role': role?.id, 'courses': courses.map((c) => c.toJson()).toList()});
+  Map<String, dynamic> _snapshot() => {
+    'role': role?.id, 'selected_course_id': selectedCourseId,
+    'courses': courses.map((c) => c.toJson()).toList(),
+  };
+
+  Future<void> _save() async {
+    final store = _storage;
+    final id = _accountId;
+    final version = ++_localVersion;
+    final snapshot = jsonDecode(jsonEncode(_snapshot())) as Map<String, dynamic>;
+    if (id != null) _cloudDirty = true;
+    await store.save({...snapshot, if (id != null) ...{
+      '_pending_cloud': true, '_cloud_base_revision': _cloudRevision,
+    }});
+    if (id == null) return;
+    final write = _cloudWrites.then((_) async {
+      if (_storage != store || account?.userId != id) return;
+      try {
+        if (_cloudRevision == null) {
+          final cloud = await account!.loadWorkspace();
+          if (_storage != store) return;
+          if (cloud.revision != 0) throw StateError('Cloud workspace must be refreshed first');
+          _cloudRevision = cloud.revision;
+        }
+        final revision = await account!.saveWorkspace(snapshot, expectedRevision: _cloudRevision!);
+        if (_storage != store) return;
+        _cloudRevision = revision;
+        if (version == _localVersion) {
+          await store.save(snapshot);
+          _cloudDirty = false;
+        }
+        syncError = null;
+      } on StudySyncConflict {
+        if (_storage == store) syncError = 'Sổ đã thay đổi trên thiết bị khác. Hãy tải bản đồng bộ.';
+      } catch (_) {
+        if (_storage == store) syncError = 'Thay đổi đã lưu trên máy. Chưa thể đồng bộ.';
+      }
+      if (_storage == store) notifyListeners();
+    });
+    _cloudWrites = write.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    await write;
+  }
+
+  Future<void> refreshWorkspace() async {
+    if (!signedIn || !loaded || _cloudDirty || _busy.isNotEmpty) return;
+    final store = _storage;
+    final version = _localVersion;
+    try {
+      final cloud = await account!.loadWorkspace();
+      if (_storage != store || version != _localVersion || cloud.revision == _cloudRevision || cloud.revision == 0) return;
+      _cloudRevision = cloud.revision;
+      _restore(cloud.snapshot);
+      await store.save(cloud.snapshot);
+      if (_storage == store) notifyListeners();
+    } catch (_) {
+      // Keep the last local copy when the connection is unavailable.
+    }
+  }
+
+  Future<void> retrySync() => _save();
+
+  Future<void> useCloudCopy() async {
+    if (!signedIn) return;
+    final store = _storage;
+    final cloud = await account!.loadWorkspace();
+    if (_storage != store) return;
+    await store.save(cloud.snapshot);
+    if (_storage == store) await _loadWorkspace(_accountId);
+  }
+
+  Future<int> importGuestCourses() async {
+    if (!signedIn) return 0;
+    final ids = courses.map((c) => c.id).toSet();
+    final imported = _guestCourses.map(Course.fromJson).where((c) => ids.add(c.id)).toList();
+    courses.addAll(imported);
+    notifyListeners();
+    await _save();
+    return imported.length;
+  }
+
+  Course? get selectedCourse => selectedCourseId == null ? null : courseById(selectedCourseId!);
+
+  Future<void> selectCourse(Course course) async {
+    selectedCourseId = course.id;
+    notifyListeners();
+    await _save();
+  }
+
+  Future<Course> createNotebook({String title = 'Sổ học tập mới', String? prompt, bool sourcesFirst = false}) async {
+    final notebook = Course(id: _uuid.v4(), title: title, goal: '', createdAt: DateTime.now(), lessons: []);
+    courses.insert(0, notebook);
+    openingPrompt = prompt;
+    openSourcesFirst = sourcesFirst;
+    await selectCourse(notebook);
+    return notebook;
+  }
+
+  Future<void> renameNotebook(Course course, String title) async {
+    course.title = title.trim();
+    notifyListeners();
+    await _save();
+  }
+
+  Future<Course> openStudySample(String id) async {
+    final course = courseById(id) ?? buildStudySample(id);
+    if (!courses.contains(course)) courses.insert(0, course);
+    await selectCourse(course);
+    return course;
+  }
+
+  bool isBusy(Course course, String action) => _busy.contains('${course.id}/$action');
+
+  Future<T?> _run<T>(Course course, String action, Future<T> Function() operation) async {
+    final key = '${course.id}/$action';
+    if (!_busy.add(key)) return null;
+    notifyListeners();
+    try {
+      if (signedIn && (_cloudDirty || _cloudRevision == null)) {
+        await _save();
+        if (syncError != null) throw ApiException(syncError!);
+      }
+      if (!courses.contains(course)) return null;
+      return await operation();
+    } finally {
+      _busy.remove(key);
+      notifyListeners();
+    }
+  }
+
+  void _addSource(Course course, CourseSource source) {
+    final matches = course.sources.where((s) => s.id == source.id || (source.url != null && s.url == source.url));
+    if (matches.isEmpty) {
+      course.sources.add(source);
+    } else if (matches.first.removed) {
+      matches.first
+        ..removed = false
+        ..enabled = true;
+    } else if (matches.first.extract.isEmpty && source.extract.isNotEmpty) {
+      course.sources[course.sources.indexOf(matches.first)] = source;
+    }
+  }
+
+  Future<void> addWebUrl(Course course, String url) async {
+    await _run(course, 'url', () async {
+      final out = await api.importWebSource(url);
+      if (!courses.contains(course)) return;
+      final source = out['source'];
+      if (source is! Map) throw ApiException('Máy chủ chưa đọc được liên kết này.');
+      _addSource(course, CourseSource.fromWeb(WebSource.fromJson(Map<String, dynamic>.from(source))));
+      notifyListeners();
+      await _save();
+    });
+  }
+
+  Future<void> planCourse(Course course, StudyBrief brief) async {
+    await _run(course, 'plan', () async {
+      final previous = course.brief;
+      if (previous?.topic != brief.topic || previous?.scope != brief.scope || previous?.searchWeb != brief.searchWeb) {
+        course.researchDone = false;
+        course.researchMode = '';
+        course.missingCategories = [];
+      }
+      course.brief = brief;
+      course.goal = brief.goal;
+      if (course.title == 'Sổ học tập mới') course.title = brief.topic;
+      _schedule(course);
+      notifyListeners();
+      await _save();
+      if (!courses.contains(course)) return;
+      if (brief.searchWeb && !course.researchDone) {
+        final research = await api.research(brief.topic, brief.scope);
+        if (!courses.contains(course)) return;
+        for (final row in _mapsFrom(research['sources'])) {
+          _addSource(course, CourseSource.fromWeb(WebSource.fromJson(row)));
+        }
+        course.researchMode = research['mode'] ?? '';
+        course.missingCategories = (research['missing'] as List? ?? []).whereType<String>().toList();
+        course.researchDone = true;
+        notifyListeners();
+        await _save();
+      }
+      if (course.lessons.isEmpty && courses.contains(course)) {
+        final out = await api.studyOutline({'role': _roleId, 'brief': brief.toJson(), ...course.materialJson()});
+        if (!courses.contains(course)) return;
+        final lessons = _mapsFrom(out['lessons']).map(Lesson.fromJson).toList();
+        if (lessons.isEmpty) throw ApiException('Chưa có lộ trình. Hãy thử lại với phạm vi môn học cụ thể hơn.');
+        course
+          ..title = out['title'] ?? course.title
+          ..subject = out['subject'] ?? brief.topic
+          ..language = out['language'] ?? ''
+          ..lessons.addAll(lessons);
+        _schedule(course);
+        notifyListeners();
+        await _save();
+      }
+      if (!courses.contains(course) || course.lessons.isEmpty) return;
+      final first = course.lessons.first;
+      if (first.blocks == null) await generateLesson(course, first);
+      if (!courses.contains(course) || course.artifacts.any((a) => a.id == '${course.id}-starter')) return;
+      final quiz = first.blocks?.where((b) => b.isGraded).toList() ?? [];
+      if (quiz.isNotEmpty) {
+        course.artifacts.add(StudyArtifact(id: '${course.id}-starter', kind: StudyArtifactKind.quickQuiz,
+          title: 'Kiểm tra mở đầu · ${first.title}', blocks: quiz,
+          sourceIds: quiz.map((b) => b.sourceId).whereType<String>().toSet().toList()));
+        notifyListeners();
+        await _save();
+      }
+    });
+  }
+
+  Future<void> updateSchedule(Course course, StudyBrief brief) async {
+    course.brief = brief;
+    course.goal = brief.goal;
+    _schedule(course);
+    notifyListeners();
+    await _save();
+  }
+
+  void _schedule(Course course) {
+    final brief = course.brief;
+    if (brief == null) return;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    var day = 0;
+    var plannedMinutes = 0;
+    final availableDays = brief.examDate?.difference(today).inDays;
+    for (final lesson in course.lessons.where((lesson) => !lesson.completed)) {
+      if (plannedMinutes > 0 && plannedMinutes + lesson.minutes > brief.minutesPerDay) {
+        day++;
+        plannedMinutes = 0;
+      }
+      lesson.scheduledAt = today.add(Duration(days: day));
+      plannedMinutes += lesson.minutes;
+    }
+    if (availableDays != null && availableDays <= day) {
+      final overflow = course.lessons.where((lesson) =>
+        !lesson.completed && lesson.scheduledAt?.isBefore(brief.examDate!) == false);
+      for (final lesson in overflow) {
+        lesson.scheduledAt = null;
+      }
+    }
+  }
+
+  Future<void> setLessonStep(Lesson lesson, int index) async {
+    lesson.stepIndex = index;
+    lesson.lastStudiedAt = DateTime.now();
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> setLessonCompleted(Lesson lesson, bool completed) async {
+    lesson.completed = completed;
+    lesson.lastStudiedAt = DateTime.now();
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> askNotebook(Course course, String question) async {
+    await _run(course, 'ask', () async {
+      final history = course.notebookChat.takeLast(8).map((m) => {
+        'from': m.fromUser ? 'user' : 'tutor', 'text': m.plainText,
+      }).toList();
+      final out = await api.studyAsk({'role': _roleId, 'subject': course.subject,
+        'question': question, 'history': history, ...course.materialJson()});
+      if (!courses.contains(course)) return;
+      final blocks = Block.parseList(out['blocks']);
+      if (blocks.isEmpty) throw ApiException('Chưa nhận được câu trả lời.');
+      course.notebookChat.addAll([
+        ChatMessage(fromUser: true, text: question),
+        ChatMessage(fromUser: false, blocks: blocks),
+      ]);
+      notifyListeners();
+      await _save();
+    });
+  }
+
+  Future<StudyArtifact?> createArtifact(Course course, StudyArtifactKind kind, {bool webOnly = false, bool regenerate = false}) {
+    return _run(course, 'artifact', () async {
+      final material = course.materialJson(webOnly: webOnly);
+      final sources = webOnly ? course.enabledSources.where((s) => s.kind == SourceKind.web) : course.enabledSources;
+      final fingerprint = jsonEncode(sources.map((s) => '${s.id}:${s.retrievedAt ?? ''}:${s.extract.length}').toList()..sort());
+      final previous = course.artifacts.where((a) => a.kind == kind && a.webOnly == webOnly).toList();
+      for (final existing in previous.reversed) {
+        if (!regenerate && existing.sourceFingerprint == fingerprint) return existing;
+      }
+      final out = await api.studyArtifact({'role': _roleId, 'kind': kind.id,
+        if (regenerate) 'request_id': _uuid.v4(),
+        'topic': course.brief?.topic ?? course.title, ...material});
+      if (!courses.contains(course)) throw ApiException('Sổ học tập đã thay đổi.');
+      final blocks = Block.parseList(out['blocks']);
+      if (blocks.isEmpty) throw ApiException('Chưa có nội dung phù hợp từ các nguồn đã chọn.');
+      final artifact = StudyArtifact(id: _uuid.v4(), kind: kind, title: out['title'] ?? kind.label,
+        blocks: blocks, sourceIds: (out['source_ids'] as List? ?? []).whereType<String>().toList(),
+        sourceFingerprint: fingerprint, webOnly: webOnly,
+        version: previous.fold(0, (v, a) => a.version > v ? a.version : v) + 1);
+      course.artifacts.add(artifact);
+      notifyListeners();
+      await _save();
+      return artifact;
+    });
+  }
+
+  Future<void> saveChatNote(Course course, ChatMessage message) async {
+    final id = 'note-${message.at.microsecondsSinceEpoch}';
+    if (course.artifacts.any((artifact) => artifact.id == id)) return;
+    course.artifacts.add(StudyArtifact(id: id, kind: StudyArtifactKind.note, title: 'Ghi chú từ hỏi đáp',
+      blocks: message.blocks, sourceIds: message.blocks.map((b) => b.sourceId).whereType<String>().toSet().toList()));
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> recordAttempt(Course course, StudyArtifact artifact, QuizAttempt attempt) async {
+    if (!courses.contains(course) || !course.artifacts.contains(artifact)) return;
+    if (artifact.attempts.any((a) => a.id == attempt.id)) return;
+    artifact.attempts.add(attempt);
+    notifyListeners();
+    await _save();
+  }
+
+  @override
+  void dispose() {
+    _authChanges?.cancel();
+    super.dispose();
+  }
 
   Future<void> setRole(UserRole r) async {
     role = r;
@@ -54,11 +443,19 @@ class AppState extends ChangeNotifier {
   }
 
   /// Bien nguon nhap (file chua tai len / van ban / web) thanh nguon cua khoa hoc. File thi tai len server.
-  Future<CourseSource> _materialize(SourceDraft d) async {
+  Future<CourseSource> _materialize(SourceDraft d, {Course? course}) async {
     switch (d.kind) {
       case SourceKind.file:
+        if (signedIn && course != null) {
+          final id = _uuid.v4();
+          final path = await account!.uploadSource(notebookId: course.id, sourceId: id,
+            bytes: Uint8List.fromList(d.bytes!), mimeType: d.mimeType!);
+          return CourseSource(id: id, kind: SourceKind.file, title: d.title, storagePath: path, mimeType: d.mimeType);
+        }
+        if (d.sizeBytes > 3 * 1024 * 1024) throw ApiException('Bản demo nhận PDF và ảnh tối đa 3 MB.');
         final up = await api.upload(filename: d.title, mimeType: d.mimeType!, bytes: d.bytes!);
-        return CourseSource(id: 'file:${up['fileId']}', kind: SourceKind.file, title: d.title, fileId: up['fileId'], mimeType: d.mimeType);
+        return CourseSource(id: 'file:${up['fileId']}', kind: SourceKind.file, title: d.title,
+          fileId: up['fileId'], mimeType: d.mimeType, pages: _mapsFrom(up['pages']));
       case SourceKind.text:
         return CourseSource(id: 'text:${_uuid.v4()}', kind: SourceKind.text, title: d.title, text: d.text);
       case SourceKind.web:
@@ -102,12 +499,17 @@ class AppState extends ChangeNotifier {
 
   // --- Quan ly nguon kieu NotebookLM ---
   Future<void> addSources(Course c, List<SourceDraft> drafts) async {
-    for (final d in drafts) {
-      final s = await _materialize(d);
-      if (!c.sources.any((x) => x.id == s.id)) c.sources.add(s);
+    if (signedIn && (_cloudDirty || _cloudRevision == null)) {
+      await _save();
+      if (syncError != null) throw ApiException(syncError!);
     }
-    notifyListeners();
-    await _save();
+    for (final d in drafts) {
+      final s = await _materialize(d, course: c);
+      if (!courses.contains(c)) return;
+      _addSource(c, s);
+      notifyListeners();
+      await _save();
+    }
   }
 
   Future<void> setSourceEnabled(Course c, CourseSource s, bool on) async {
@@ -117,7 +519,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> removeSource(Course c, CourseSource s) async {
-    c.sources.remove(s);
+    s.removed = true;
+    s.enabled = false;
     notifyListeners();
     await _save();
   }
@@ -129,13 +532,27 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> generateLesson(Course course, Lesson lesson) async {
-    final out = await api.lesson({
+    final out = await api.studyLesson({
       'role': _roleId,
       'course': {'title': course.title, 'subject': course.subject, 'lessons': course.lessons.map((l) => l.toOutlineJson()).toList()},
       'lessonId': lesson.id,
       ...course.materialJson(),
     });
-    lesson.blocks = Block.parseList(out['blocks']);
+    if (!courses.contains(course) || !course.lessons.contains(lesson)) return;
+    final blocks = Block.parseList(out['blocks']);
+    if (blocks.isEmpty) throw ApiException('Bài giảng chưa có nội dung dùng được.');
+    if (lesson.results.isNotEmpty) {
+      lesson.previousResults = [...lesson.previousResults, {
+        'at': DateTime.now().toIso8601String(),
+        'questions': [
+          for (final entry in lesson.results.entries)
+            if (entry.key >= 0 && entry.key < (lesson.blocks?.length ?? 0))
+              {'block': lesson.blocks![entry.key].toJson(), 'correct': entry.value},
+        ],
+      }];
+    }
+    lesson.blocks = blocks;
+    lesson.stepIndex = lesson.stepIndex.clamp(0, blocks.length - 1);
     lesson.results.clear();
     notifyListeners();
     await _save();
@@ -179,13 +596,15 @@ class AppState extends ChangeNotifier {
     lesson.chat.add(userMsg);
     notifyListeners();
     try {
-      final out = await api.ask({
+      final out = await (web ? api.ask : api.studyAsk)({
         'role': _roleId,
         'subject': course.subject,
         'lessonTitle': lesson.title,
         'question': question,
         'history': history,
         'webSearch': web,
+        if (lesson.blocks?.isNotEmpty ?? false)
+          'step': lesson.blocks![lesson.stepIndex.clamp(0, lesson.blocks!.length - 1)].title ?? '',
         ...course.materialJson(),
       });
       lesson.chat.add(ChatMessage(
@@ -199,8 +618,10 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       rethrow;
     }
-    notifyListeners();
-    await _save();
+    if (courses.contains(course)) {
+      notifyListeners();
+      await _save();
+    }
   }
 
   Future<void> clearChat(Lesson lesson) async {
@@ -247,7 +668,7 @@ class AppState extends ChangeNotifier {
       });
 
   Future<List<WebSource>> searchSources(String topic) async {
-    final out = await api.searchSources(topic, _roleId);
+    final out = await api.research(topic, '');
     return ((out['sources'] as List?) ?? []).map((e) => WebSource.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 
@@ -284,12 +705,14 @@ class AppState extends ChangeNotifier {
 
   Future<void> deleteCourse(Course c) async {
     courses.remove(c);
+    if (selectedCourseId == c.id) selectedCourseId = courses.firstOrNull?.id;
     notifyListeners();
     await _save();
   }
 
   Future<void> clearAll() async {
     courses.clear();
+    selectedCourseId = null;
     role = null;
     notifyListeners();
     await _save();
@@ -299,6 +722,10 @@ class AppState extends ChangeNotifier {
   int get totalLessonsGenerated => courses.fold(0, (s, c) => s + c.lessons.where((l) => l.blocks != null).length);
   int get totalAnswered => courses.fold(0, (s, c) => s + c.lessons.fold(0, (t, l) => t + l.results.length));
   int get totalCorrect => courses.fold(0, (s, c) => s + c.lessons.fold(0, (t, l) => t + l.correctCount));
+}
+
+extension on List<ChatMessage> {
+  Iterable<ChatMessage> takeLast(int count) => skip(length > count ? length - count : 0);
 }
 
 /// Nguon nguoi dung vua them (chua tai len): file (bytes), van ban, hoac trang web tim duoc.

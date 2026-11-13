@@ -8,13 +8,14 @@ import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/blocks/block_renderer.dart';
 import '../widgets/motion.dart';
+import '../widgets/study_citation.dart';
 
 /// Gia su hoi dap kieu ChatGPT: moi cau tra loi la chuoi khoi (chu + LaTeX, anh that,
 /// do thi/mo phong, giai tung buoc, code demo...) do AI tu chon, render bang BlockRenderer.
 class TutorChatScreen extends StatefulWidget {
-  const TutorChatScreen({super.key, required this.courseId, required this.lessonId, this.initialQuestion});
+  const TutorChatScreen({super.key, required this.courseId, required this.lessonId, this.initialQuestion, this.draftQuestion});
   final String courseId, lessonId;
-  final String? initialQuestion;
+  final String? initialQuestion, draftQuestion;
   @override
   State<TutorChatScreen> createState() => _TutorChatScreenState();
 }
@@ -39,8 +40,13 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
   @override
   void initState() {
     super.initState();
+    _input.text = widget.draftQuestion ?? '';
     final q = widget.initialQuestion;
-    if (q != null && q.isNotEmpty) WidgetsBinding.instance.addPostFrameCallback((_) => _send(q));
+    if (q != null && q.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _send(q);
+      });
+    }
   }
 
   @override
@@ -78,9 +84,11 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
     _toBottom();
     try {
       await s.ask(c, l, q, webSearch: _web ?? c.allowWeb);
-    } on ApiException catch (e) {
-      _error = e.message;
-      _input.text = q; // giu lai cau hoi de gui lai
+    } catch (error) {
+      if (mounted) {
+        _error = error is ApiException ? error.message : 'Chưa gửi được câu hỏi.';
+        _input.text = q;
+      }
     }
     if (mounted) setState(() => _sending = false);
     _toBottom();
@@ -116,7 +124,7 @@ class _TutorChatScreenState extends State<TutorChatScreen> {
                     if (i == msgs.length) return const _Typing();
                     final m = msgs[i];
                     if (m.fromUser) return _UserBubble(text: m.text).enter(context, dy: 0.2);
-                    return _TutorAnswer(message: m, lesson: l).enter(context);
+                    return _TutorAnswer(message: m, course: c, lesson: l).enter(context);
                   },
                 ),
         ),
@@ -239,8 +247,9 @@ class _UserBubble extends StatelessWidget {
 }
 
 class _TutorAnswer extends StatelessWidget {
-  const _TutorAnswer({required this.message, required this.lesson});
+  const _TutorAnswer({required this.message, required this.course, required this.lesson});
   final ChatMessage message;
+  final Course course;
   final Lesson lesson;
 
   @override
@@ -255,9 +264,11 @@ class _TutorAnswer extends StatelessWidget {
           const SizedBox(width: 8),
           Flexible(child: _ScopeBadge(mode: message.webMode)),
         ]),
-        for (final b in message.blocks)
+        for (final b in message.blocks) ...[
           // Cau hoi kiem tra trong chat khong tinh vao ket qua bai hoc.
           BlockRenderer(block: b, lesson: lesson, onAnswered: (_, _, _) {}),
+          if (b.sourceId != null) StudyCitation(course: course, block: b),
+        ],
         if (message.web.isNotEmpty) _WebSources(sources: message.web),
       ]),
     );

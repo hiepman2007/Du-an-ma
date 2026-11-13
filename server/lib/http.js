@@ -1,35 +1,54 @@
-// Tien ich dung chung cho cac handler: xac thuc token, gioi han toc do, tra loi loi.
+import { timingSafeEqual } from 'node:crypto';
+import { assertStudyNotebookAccess, authenticateStudyAccount, resolveStudyFiles, studyAccountsRequired, withStudyAccount } from './account.js';
 
 const hits = new Map();
 
-export function guard(req, res) {
+function guardLocalDemo(req) {
   const expected = process.env.APP_TOKEN;
-  if (!expected) {
-    res.status(500).json({ error: 'Server chua cau hinh APP_TOKEN' });
-    return false;
+  const remote = req.socket?.remoteAddress;
+  const loopback = remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1';
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production' || !loopback || !expected) {
+    throw fail(503, 'Máy chủ chưa cấu hình dịch vụ tài khoản.');
   }
-  if (req.headers['x-app-token'] !== expected) {
-    res.status(401).json({ error: 'Khong co quyen truy cap' });
-    return false;
+  const supplied = req.headers['x-app-token'];
+  const token = typeof supplied === 'string' ? Buffer.from(supplied) : Buffer.alloc(0);
+  const expectedBytes = Buffer.from(expected);
+  if (token.length !== expectedBytes.length || !timingSafeEqual(token, expectedBytes)) {
+    throw fail(401, 'Không có quyền truy cập.');
   }
   const limit = Number(process.env.RATE_LIMIT_PER_MIN || 30);
   const minute = Math.floor(Date.now() / 60000);
-  const key = `${minute}`;
-  const count = (hits.get(key) || 0) + 1;
+  const count = (hits.get(minute) || 0) + 1;
   hits.clear();
-  hits.set(key, count);
-  if (count > limit) {
-    res.status(429).json({ error: 'Qua nhieu yeu cau, thu lai sau it giay' });
-    return false;
+  hits.set(minute, count);
+  if (count > limit) throw fail(429, 'Quá nhiều yêu cầu. Hãy thử lại sau.');
+}
+
+async function prepareCloudRequest(req) {
+  const path = (req.url || '').split('?')[0];
+  if (path === '/api/upload') throw fail(410, 'Hãy tải tệp vào kho riêng của sổ học tập.');
+  if (path === '/api/sources/search' || (path === '/api/ask' && req.body?.webSearch)) {
+    throw fail(410, 'Hãy dùng tìm nguồn trong sổ học tập.');
   }
-  return true;
+  if (path === '/api/usage') throw fail(404, 'Không tìm thấy.');
+  if (!req.body || typeof req.body !== 'object') return;
+  await assertStudyNotebookAccess(req.body, { required: /^\/api\/study\/(ask|artifact|outline|lesson)$/.test(path) });
+  if (!path.startsWith('/api/study/') && (req.body.fileId || req.body.files?.length)) {
+    const { uploadFile } = await import('./ai.js');
+    req.body = await resolveStudyFiles(req.body, uploadFile);
+  }
 }
 
 export function wrap(handler, { method = 'POST' } = {}) {
   return async (req, res) => {
-    // CORS cho ban web xem thu (app Android khong can). Bao ve that su van la X-App-Token.
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-App-Token');
+    const origin = req.headers.origin;
+    const allow = (process.env.STUDY_WEB_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean);
+    if (!studyAccountsRequired() && allow.length === 0) res.setHeader('Access-Control-Allow-Origin', '*');
+    if (allow.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-App-Token');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     if (req.method === 'OPTIONS') {
       res.statusCode = 204;
@@ -41,14 +60,31 @@ export function wrap(handler, { method = 'POST' } = {}) {
         res.status(405).json({ error: `Chi ho tro ${method}` });
         return;
       }
-      if (!guard(req, res)) return;
-      await handler(req, res);
+      if (studyAccountsRequired()) {
+        const account = await authenticateStudyAccount(req);
+        await withStudyAccount(account, async () => {
+          requireAdultProviderUse(req);
+          await prepareCloudRequest(req);
+          await handler(req, res);
+        });
+      } else {
+        guardLocalDemo(req);
+        requireAdultProviderUse(req);
+        await handler(req, res);
+      }
     } catch (e) {
-      console.error('[error]', e);
       const status = e.status && e.status >= 400 && e.status < 600 ? e.status : 500;
-      res.status(status).json({ error: e.publicMessage || 'Loi may chu khi goi AI', detail: String(e.message || e).slice(0, 300) });
+      if (status >= 500) console.error('[api]', status, e.name);
+      res.status(status).json({ error: e.publicMessage || 'Lỗi máy chủ. Hãy thử lại.' });
     }
   };
+}
+
+function requireAdultProviderUse(req) {
+  if (req.body?.role !== 'pupil') return;
+  const provider = (process.env.AI_PROVIDER || '').toLowerCase();
+  if (provider === 'openai' || (provider !== 'gemini' && process.env.OPENAI_API_KEY)) return;
+  throw fail(403, 'Chế độ AI hiện dành cho người học từ 18 tuổi. Bạn vẫn có thể mở khóa mẫu.');
 }
 
 export function fail(status, message) {

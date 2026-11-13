@@ -21,14 +21,19 @@ enum UserRole {
 
 double _d(Object? v, [double fallback = 0]) => v is num ? v.toDouble() : fallback;
 List<String> _strs(Object? v) => v is List ? v.map((e) => '$e').toList() : <String>[];
+List<Map<String, dynamic>> _maps(Object? v) => v is List
+    ? v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : [];
 
 class WebSource {
-  WebSource({required this.title, required this.url, required this.domain, required this.snippet, required this.trusted});
+  WebSource({required this.title, required this.url, required this.domain, required this.snippet, required this.trusted,
+    this.id, this.extract = '', this.category = '', this.publisher = '', this.retrievedAt});
   final String title;
   final String url;
   final String domain;
   final String snippet;
   final bool trusted;
+  final String? id, retrievedAt;
+  final String extract, category, publisher;
 
   factory WebSource.fromJson(Map<String, dynamic> j) => WebSource(
         title: j['title'] ?? '',
@@ -36,9 +41,15 @@ class WebSource {
         domain: j['domain'] ?? '',
         snippet: j['snippet'] ?? '',
         trusted: j['trust'] == 'trusted' || j['trusted'] == true,
+        id: j['id'],
+        extract: j['extract'] ?? '',
+        category: j['category'] ?? '',
+        publisher: j['publisher'] ?? '',
+        retrievedAt: j['retrieved_at'],
       );
   Map<String, dynamic> toJson() =>
-      {'title': title, 'url': url, 'domain': domain, 'snippet': snippet, 'trust': trusted ? 'trusted' : 'check'};
+      {'id': id, 'title': title, 'url': url, 'domain': domain, 'snippet': snippet, 'extract': extract,
+        'category': category, 'publisher': publisher, 'retrieved_at': retrievedAt, 'trust': trusted ? 'trusted' : 'check'};
 }
 
 class LabVar {
@@ -113,10 +124,11 @@ class Graph {
 
 enum BlockType {
   textSection, mcq, trueFalse, fillBlank, matching, ordering, formulaLab, functionGraph, flashcards,
-  stepSolver, conceptMap, imageCard, reactionLab, chemFormula, motionSim, customSim, codeDemo,
+  stepSolver, conceptMap, imageCard, reactionLab, chemFormula, motionSim, customSim, codeDemo, dsaSim,
 }
 
 const _blockTypeIds = {
+  'dsa_sim': BlockType.dsaSim,
   'step_solver': BlockType.stepSolver,
   'concept_map': BlockType.conceptMap,
   'image_card': BlockType.imageCard,
@@ -174,6 +186,8 @@ class Block {
   final String typeId;
   final String topic;
   final String? title, body, explanation, sourceQuote, sourceUrl;
+  String? get sourceId => raw['source_id'] is String ? raw['source_id'] as String : null;
+  String get questionId => raw['id']?.toString() ?? '';
   final List<String> options, answers, items;
   final int? answerIndex, sourcePage;
   final bool? answerBool;
@@ -188,7 +202,7 @@ class Block {
   /// Khoi tuong tac/thuc nghiem (dung cho thong ke va nut "Kham pha them").
   bool get isInteractive => const {
         BlockType.formulaLab, BlockType.functionGraph, BlockType.reactionLab, BlockType.chemFormula,
-        BlockType.motionSim, BlockType.stepSolver, BlockType.conceptMap, BlockType.customSim,
+        BlockType.motionSim, BlockType.stepSolver, BlockType.conceptMap, BlockType.customSim, BlockType.dsaSim,
       }.contains(type);
 
   /// Tra ve null neu loai khoi khong co trong danh muc (bo qua an toan).
@@ -249,13 +263,21 @@ class Block {
 }
 
 class Lesson {
-  Lesson({required this.id, required this.title, this.objectives = const [], this.minutes = 15, this.interactionHint = '', this.blocks, Map<int, bool>? results, List<ChatMessage>? chat})
+  Lesson({required this.id, required this.title, this.objectives = const [], this.minutes = 15, this.interactionHint = '', this.blocks,
+    Map<int, bool>? results, List<ChatMessage>? chat, this.phase = '', this.prerequisites = const [], this.sourceIds = const [],
+    this.stepIndex = 0, this.completed = false, this.lastStudiedAt, this.scheduledAt, this.previousResults = const []})
       : results = results ?? {},
         chat = chat ?? [];
   final String id;
   String title;
   final List<String> objectives;
   final int minutes;
+  final String phase;
+  final List<String> prerequisites, sourceIds;
+  int stepIndex;
+  bool completed;
+  DateTime? lastStudiedAt, scheduledAt;
+  List<Map<String, dynamic>> previousResults;
 
   /// Goi y kieu tuong tac AI de xuat khi len lo trinh.
   final String interactionHint;
@@ -271,9 +293,10 @@ class Lesson {
 
   int get gradedCount => blocks?.where((b) => b.isGraded).length ?? 0;
   int get correctCount => results.values.where((v) => v).length;
-  bool get isDone => blocks != null && gradedCount > 0 && results.length >= gradedCount;
+  bool get isDone => completed;
 
-  factory Lesson.fromJson(Map<String, dynamic> j) => Lesson(
+  factory Lesson.fromJson(Map<String, dynamic> j) {
+    final lesson = Lesson(
         id: j['id'] ?? '',
         title: j['title'] ?? '',
         objectives: _strs(j['objectives']),
@@ -281,10 +304,22 @@ class Lesson {
         interactionHint: j['interaction_hint'] ?? '',
         blocks: j['blocks'] == null ? null : Block.parseList(j['blocks']),
         results: {
-          for (final e in ((j['results'] as Map?) ?? {}).entries) int.parse('${e.key}'): e.value == true,
+          for (final e in ((j['results'] as Map?) ?? {}).entries)
+            if (int.tryParse('${e.key}') case final int index) index: e.value == true,
         },
         chat: ((j['chat'] as List?) ?? []).whereType<Map>().map((e) => ChatMessage.fromJson(Map<String, dynamic>.from(e))).toList(),
+        phase: j['phase'] ?? '',
+        prerequisites: _strs(j['prerequisites']),
+        sourceIds: _strs(j['source_ids']),
+        stepIndex: j['step_index'] is int ? j['step_index'] : 0,
+        lastStudiedAt: DateTime.tryParse(j['last_studied_at'] ?? ''),
+        scheduledAt: DateTime.tryParse(j['scheduled_at'] ?? ''),
+        previousResults: _maps(j['previous_results']),
       );
+    lesson.completed = j['completed'] as bool? ??
+        (lesson.gradedCount > 0 && lesson.results.length >= lesson.gradedCount);
+    return lesson;
+  }
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
@@ -294,14 +329,117 @@ class Lesson {
         'blocks': blocks?.map((b) => b.toJson()).toList(),
         'results': {for (final e in results.entries) '${e.key}': e.value},
         'chat': chat.map((m) => m.toJson()).toList(),
+        'phase': phase,
+        'prerequisites': prerequisites,
+        'source_ids': sourceIds,
+        'step_index': stepIndex,
+        'completed': completed,
+        'last_studied_at': lastStudiedAt?.toIso8601String(),
+        'scheduled_at': scheduledAt?.toIso8601String(),
+        'previous_results': previousResults,
       };
 
   /// Dang gui len server (khong kem noi dung khoi).
   Map<String, dynamic> toOutlineJson() =>
-      {'id': id, 'title': title, 'objectives': objectives, 'minutes': minutes, 'interaction_hint': interactionHint};
+      {'id': id, 'title': title, 'objectives': objectives, 'minutes': minutes, 'interaction_hint': interactionHint,
+        'phase': phase, 'prerequisites': prerequisites, 'source_ids': sourceIds};
 }
 
 enum SourceKind { file, text, web }
+
+class StudyBrief {
+  const StudyBrief({required this.topic, this.goal = 'Học nền tảng', this.minutesPerDay = 30,
+    this.level = 'Mới bắt đầu', this.scope = '', this.examDate, this.searchWeb = true});
+
+  final String topic, goal, level, scope;
+  final int minutesPerDay;
+  final DateTime? examDate;
+  final bool searchWeb;
+
+  factory StudyBrief.fromJson(Map<String, dynamic> json) => StudyBrief(
+    topic: json['topic'] ?? '',
+    goal: json['goal'] ?? 'Học nền tảng',
+    level: json['level'] ?? 'Mới bắt đầu',
+    scope: json['scope'] ?? '',
+    minutesPerDay: json['minutes_per_day'] ?? 30,
+    examDate: DateTime.tryParse(json['exam_date'] ?? ''),
+    searchWeb: json['search_web'] != false,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'topic': topic, 'goal': goal, 'level': level, 'scope': scope,
+    'minutes_per_day': minutesPerDay, 'exam_date': examDate?.toIso8601String().split('T').first,
+    'search_web': searchWeb,
+  };
+}
+
+enum StudyArtifactKind {
+  summary('summary', 'Tóm tắt'),
+  quickQuiz('quick_quiz', 'Quiz nhanh'),
+  interactiveQuiz('interactive_quiz', 'Quiz tương tác'),
+  flashcards('flashcards', 'Thẻ ghi nhớ'),
+  note('note', 'Ghi chú');
+
+  const StudyArtifactKind(this.id, this.label);
+  final String id, label;
+
+  bool get isQuiz => this == quickQuiz || this == interactiveQuiz;
+}
+
+class QuizAttempt {
+  QuizAttempt({required this.id, required this.results, required this.total, DateTime? at})
+      : at = at ?? DateTime.now();
+
+  final String id;
+  final Map<String, bool> results;
+  final int total;
+  final DateTime at;
+  int get score => results.values.where((correct) => correct).length;
+
+  factory QuizAttempt.fromJson(Map<String, dynamic> json) => QuizAttempt(
+    id: json['id'] ?? '', total: json['total'] ?? 0,
+    results: Map<String, bool>.from(json['results'] as Map? ?? {}),
+    at: DateTime.tryParse(json['at'] ?? ''),
+  );
+  Map<String, dynamic> toJson() => {'id': id, 'total': total, 'results': results, 'at': at.toIso8601String()};
+}
+
+class StudyArtifact {
+  StudyArtifact({required this.id, required this.kind, required this.title, required this.blocks,
+    this.sourceIds = const [], this.sourceFingerprint = '', this.webOnly = false,
+    this.version = 1, DateTime? createdAt, List<QuizAttempt>? attempts})
+      : createdAt = createdAt ?? DateTime.now(), attempts = attempts ?? [];
+
+  final String id, title, sourceFingerprint;
+  final StudyArtifactKind kind;
+  final List<Block> blocks;
+  final List<String> sourceIds;
+  final bool webOnly;
+  final int version;
+  final DateTime createdAt;
+  final List<QuizAttempt> attempts;
+
+  String questionKey(int index) {
+    final key = blocks[index].questionId;
+    return key.isEmpty ? '$id-$index' : key;
+  }
+
+  factory StudyArtifact.fromJson(Map<String, dynamic> json) => StudyArtifact(
+    id: json['id'] ?? '', title: json['title'] ?? '',
+    kind: StudyArtifactKind.values.firstWhere((k) => k.id == json['kind'], orElse: () => StudyArtifactKind.note),
+    blocks: Block.parseList(json['blocks']), sourceIds: _strs(json['source_ids']),
+    sourceFingerprint: json['source_fingerprint'] ?? '', webOnly: json['web_only'] == true,
+    version: json['version'] ?? 1, createdAt: DateTime.tryParse(json['created_at'] ?? ''),
+    attempts: _maps(json['attempts']).map(QuizAttempt.fromJson).toList(),
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id, 'title': title, 'kind': kind.id, 'blocks': blocks.map((block) => block.toJson()).toList(),
+    'source_ids': sourceIds, 'source_fingerprint': sourceFingerprint, 'web_only': webOnly,
+    'version': version, 'created_at': createdAt.toIso8601String(),
+    'attempts': attempts.map((attempt) => attempt.toJson()).toList(),
+  };
+}
 
 /// Mot nguon cua khoa hoc (kieu NotebookLM): file PDF/anh, van ban dan vao, hoac trang web.
 /// [enabled] = dang duoc chon: AI chi dung cac nguon dang bat.
@@ -318,6 +456,13 @@ class CourseSource {
     this.snippet = '',
     this.trusted = false,
     this.enabled = true,
+    this.extract = '',
+    this.category = '',
+    this.publisher = '',
+    this.retrievedAt,
+    this.storagePath,
+    this.removed = false,
+    this.pages = const [],
   });
 
   final String id;
@@ -325,20 +470,29 @@ class CourseSource {
   final String title;
   final String? fileId, mimeType, text, url;
   final String domain, snippet;
+  final String extract, category, publisher;
+  final String? retrievedAt, storagePath;
+  final List<Map<String, dynamic>> pages;
   final bool trusted;
   bool enabled;
+  bool removed;
 
   factory CourseSource.fromWeb(WebSource w) => CourseSource(
-        id: 'web:${w.url}',
+        id: w.id ?? 'web:${w.url}',
         kind: SourceKind.web,
         title: w.title,
         url: w.url,
         domain: w.domain,
         snippet: w.snippet,
         trusted: w.trusted,
+        extract: w.extract,
+        category: w.category,
+        publisher: w.publisher,
+        retrievedAt: w.retrievedAt,
       );
 
-  WebSource toWeb() => WebSource(title: title, url: url ?? '', domain: domain, snippet: snippet, trusted: trusted);
+  WebSource toWeb() => WebSource(id: id, title: title, url: url ?? '', domain: domain, snippet: snippet,
+    trusted: trusted, extract: extract, category: category, publisher: publisher, retrievedAt: retrievedAt);
 
   factory CourseSource.fromJson(Map<String, dynamic> j) => CourseSource(
         id: j['id'] ?? '${j['kind']}:${j['title']}',
@@ -352,6 +506,13 @@ class CourseSource {
         snippet: j['snippet'] ?? '',
         trusted: j['trust'] == 'trusted' || j['trusted'] == true,
         enabled: j['enabled'] != false,
+        extract: j['extract'] ?? '',
+        category: j['category'] ?? '',
+        publisher: j['publisher'] ?? '',
+        retrievedAt: j['retrieved_at'],
+        storagePath: j['storage_path'],
+        removed: j['removed'] == true,
+        pages: _maps(j['pages']),
       );
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -365,6 +526,13 @@ class CourseSource {
         'snippet': snippet,
         'trust': trusted ? 'trusted' : 'check',
         'enabled': enabled,
+        'extract': extract,
+        'category': category,
+        'publisher': publisher,
+        'retrieved_at': retrievedAt,
+        'storage_path': storagePath,
+        'removed': removed,
+        if (pages.isNotEmpty) 'pages': pages,
       };
 }
 
@@ -379,14 +547,21 @@ class Course {
     this.subject = '',
     List<CourseSource>? sources,
     this.allowWeb = false,
-  }) : sources = sources ?? [];
+    this.brief,
+    this.researchDone = false,
+    this.researchMode = '',
+    this.missingCategories = const [],
+    this.isSample = false,
+    List<ChatMessage>? notebookChat,
+    List<StudyArtifact>? artifacts,
+  }) : sources = sources ?? [], notebookChat = notebookChat ?? [], artifacts = artifacts ?? [];
 
   final String id;
   String title;
-  final String goal, language;
+  String goal, language;
 
   /// Mon hoc do AI nhan dien khi len lo trinh (dung de chon bo may tuong tac).
-  final String subject;
+  String subject;
   final DateTime createdAt;
   final List<Lesson> lessons;
 
@@ -395,8 +570,16 @@ class Course {
 
   /// Mac dinh cho gia su: co duoc tra cuu them tren mang khong (mac dinh tat: chi dua vao nguon da nap).
   bool allowWeb;
+  StudyBrief? brief;
+  bool researchDone;
+  String researchMode;
+  List<String> missingCategories;
+  final bool isSample;
+  final List<ChatMessage> notebookChat;
+  final List<StudyArtifact> artifacts;
 
-  List<CourseSource> get enabledSources => sources.where((s) => s.enabled).toList();
+  List<CourseSource> get activeSources => sources.where((s) => !s.removed).toList();
+  List<CourseSource> get enabledSources => activeSources.where((s) => s.enabled).toList();
 
   int get doneLessons => lessons.where((l) => l.isDone).length;
 
@@ -433,6 +616,13 @@ class Course {
         lessons: ((j['lessons'] as List?) ?? []).map((e) => Lesson.fromJson(Map<String, dynamic>.from(e))).toList(),
         sources: _sourcesFromJson(j),
         allowWeb: j['allowWeb'] == true,
+        brief: j['brief'] is Map ? StudyBrief.fromJson(Map<String, dynamic>.from(j['brief'])) : null,
+        researchDone: j['research_done'] == true,
+        researchMode: j['research_mode'] ?? '',
+        missingCategories: _strs(j['missing_categories']),
+        isSample: j['is_sample'] == true || j['id'] == 'sample-ohm',
+        notebookChat: _maps(j['notebook_chat']).map(ChatMessage.fromJson).toList(),
+        artifacts: _maps(j['artifacts']).map(StudyArtifact.fromJson).toList(),
       );
 
   /// Doc nguon; ho tro du lieu ban cu (fileId/fileName/text/sources web rieng le).
@@ -459,17 +649,28 @@ class Course {
         'lessons': lessons.map((l) => l.toJson()).toList(),
         'sources': sources.map((s) => s.toJson()).toList(),
         'allowWeb': allowWeb,
+        'brief': brief?.toJson(),
+        'research_done': researchDone,
+        'research_mode': researchMode,
+        'missing_categories': missingCategories,
+        'is_sample': isSample,
+        'notebook_chat': notebookChat.map((m) => m.toJson()).toList(),
+        'artifacts': artifacts.map((a) => a.toJson()).toList(),
       };
 
   /// Dau vao gui kem moi lan goi AI: chi cac nguon DANG BAT (kieu NotebookLM).
-  Map<String, dynamic> materialJson() {
-    final on = enabledSources;
-    final files = on.where((s) => s.kind == SourceKind.file && s.fileId != null).toList();
+  Map<String, dynamic> materialJson({bool webOnly = false}) {
+    final on = webOnly ? enabledSources.where((s) => s.kind == SourceKind.web) : enabledSources;
+    final files = on.where((s) => s.kind == SourceKind.file && (s.fileId != null || s.storagePath != null)).toList();
     final texts = on.where((s) => s.kind == SourceKind.text && (s.text ?? '').isNotEmpty).toList();
     final web = on.where((s) => s.kind == SourceKind.web && s.url != null).toList();
     return {
-      if (files.isNotEmpty) 'files': [for (final f in files) {'fileId': f.fileId, 'mimeType': f.mimeType, 'name': f.title}],
+      'notebook_id': id,
+      if (files.isNotEmpty) 'files': [for (final f in files) {'id': f.id, 'fileId': f.fileId,
+        'storage_path': f.storagePath, 'mimeType': f.mimeType, 'name': f.title,
+        if (f.pages.isNotEmpty) 'pages': f.pages}],
       if (texts.isNotEmpty) 'text': texts.map((t) => texts.length > 1 ? '### ${t.title}\n${t.text}' : t.text).join('\n\n'),
+      if (texts.isNotEmpty) 'texts': [for (final t in texts) {'id': t.id, 'title': t.title, 'text': t.text}],
       if (web.isNotEmpty) 'sources': [for (final w in web) w.toWeb().toJson()],
     };
   }

@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/models.dart';
+import '../study/dsa_simulation_block.dart';
 import 'arrange_blocks.dart';
 import 'chem_blocks.dart';
 import 'code_block.dart';
@@ -40,6 +41,7 @@ class BlockRenderer extends StatelessWidget {
       BlockType.imageCard => ImageCardBlock(block: block),
       BlockType.customSim => CustomSimBlock(block: block, lesson: lesson),
       BlockType.codeDemo => CodeDemoBlock(block: block),
+      BlockType.dsaSim => DsaSimulationBlock(block: block),
     };
   }
 }

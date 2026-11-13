@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import 'lesson_screen.dart';
+import 'study_artifact_screen.dart';
 
 /// On tap: chu de yeu (tu cac cau sai) va bai can lam lai.
 class ReviewScreen extends StatelessWidget {
@@ -12,16 +13,27 @@ class ReviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
-    final items = <({String topic, int count, String courseId, String lessonId, String lessonTitle})>[];
+    final items = <({String topic, int count, String courseId, String itemId, String title, bool quiz})>[];
     for (final c in s.courses) {
       for (final l in c.lessons) {
         final bs = l.blocks;
         if (bs == null) continue;
         final counts = <String, int>{};
         l.results.forEach((i, ok) {
-          if (!ok && i < bs.length && bs[i].topic.isNotEmpty) counts[bs[i].topic] = (counts[bs[i].topic] ?? 0) + 1;
+          if (!ok && i >= 0 && i < bs.length && bs[i].topic.isNotEmpty) counts.update(bs[i].topic, (n) => n + 1, ifAbsent: () => 1);
         });
-        counts.forEach((t, n) => items.add((topic: t, count: n, courseId: c.id, lessonId: l.id, lessonTitle: l.title)));
+        counts.forEach((t, n) => items.add((topic: t, count: n, courseId: c.id, itemId: l.id, title: l.title, quiz: false)));
+      }
+      for (final artifact in c.artifacts.where((a) => a.kind.isQuiz && a.attempts.isNotEmpty)) {
+        final counts = <String, int>{};
+        final results = artifact.attempts.last.results;
+        for (var i = 0; i < artifact.blocks.length; i++) {
+          final block = artifact.blocks[i];
+          if (results[artifact.questionKey(i)] == false) {
+            counts.update(block.topic.isEmpty ? artifact.title : block.topic, (n) => n + 1, ifAbsent: () => 1);
+          }
+        }
+        counts.forEach((t, n) => items.add((topic: t, count: n, courseId: c.id, itemId: artifact.id, title: artifact.title, quiz: true)));
       }
     }
     items.sort((a, b) => b.count.compareTo(a.count));
@@ -33,13 +45,15 @@ class ReviewScreen extends StatelessWidget {
           eyebrow: 'Chẩn đoán lỗ hổng',
           title: items.isEmpty ? 'Chưa có chủ đề yếu' : '${items.length} chủ đề cần ôn',
           subtitle: items.isEmpty
-              ? 'Làm bài tập trong các khóa học, AI sẽ gom những chỗ bạn sai thành danh sách ôn tập.'
+              ? 'Làm bài tập hoặc quiz để xem những chủ đề cần ôn.'
               : 'Ôn đúng chỗ yếu thay vì đọc lại cả tài liệu.',
           action: items.isEmpty ? 'Xem khóa học' : 'Ôn chủ đề yếu nhất',
           onTap: () {
             if (items.isEmpty) return;
             final it = items.first;
-            Navigator.push(context, MaterialPageRoute(builder: (_) => LessonScreen(courseId: it.courseId, lessonId: it.lessonId)));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => it.quiz
+              ? StudyArtifactScreen(courseId: it.courseId, artifactId: it.itemId)
+              : LessonScreen(courseId: it.courseId, lessonId: it.itemId)));
           },
         ),
         const SizedBox(height: 20),
@@ -52,10 +66,12 @@ class ReviewScreen extends StatelessWidget {
                 child: ListTile(
                   leading: NumberTile(i + 1),
                   title: Text(items[i].topic, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text('Sai ${items[i].count} câu · ${items[i].lessonTitle}'),
+                  subtitle: Text('Sai ${items[i].count} câu · ${items[i].title}'),
                   trailing: const Icon(Icons.arrow_forward, color: AppColors.primary),
                   onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => LessonScreen(courseId: items[i].courseId, lessonId: items[i].lessonId))),
+                      MaterialPageRoute(builder: (_) => items[i].quiz
+                        ? StudyArtifactScreen(courseId: items[i].courseId, artifactId: items[i].itemId)
+                        : LessonScreen(courseId: items[i].courseId, lessonId: items[i].itemId))),
                 ),
               ),
             ),

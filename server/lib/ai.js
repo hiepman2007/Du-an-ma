@@ -1,5 +1,6 @@
 // Lop trung gian chon nha cung cap AI: AI_PROVIDER=openai | gemini (mac dinh: gemini neu chi co GEMINI_API_KEY).
 import { fail } from './http.js';
+import { consumeStudyQuota, currentStudyAccount, recordStudyUsage } from './account.js';
 import * as openai from './providers/openai.js';
 import * as gemini from './providers/gemini.js';
 
@@ -65,10 +66,21 @@ export function uploadFile(args) {
  * parts: [{kind:'file', fileId, mimeType} | {kind:'text', text}] - dat tai lieu len dau de duoc cache.
  * Tra ve { json, citations }.
  */
-export async function generateJson({ step, kind, system, parts, schemaName, schema, webSearch = false }) {
+export async function generateJson({ step, kind, system, parts, schemaName, schema, webSearch = false, timeoutMs = 34000, maxAttempts }) {
   const model = modelFor(kind);
-  const { text, citations, usage } = await provider().generate({ model, system, parts, schemaName, schema, webSearch });
+  const reservation = await consumeStudyQuota(step);
+  const signal = AbortSignal.timeout(timeoutMs);
+  const attempts = currentStudyAccount() ? 1 : maxAttempts;
+  let result;
+  try {
+    result = await provider().generate({ model, system, parts, schemaName, schema, webSearch, signal, maxAttempts: attempts });
+  } catch (error) {
+    if (signal.aborted) throw fail(504, 'AI chưa trả lời kịp. Hãy thử lại bước này.');
+    throw error;
+  }
+  const { text, citations, usage } = result;
   record(step, model, usage);
+  await recordStudyUsage(reservation, usage);
   if (!text) throw fail(502, 'AI khong tra ve noi dung');
   let json;
   try {

@@ -2,24 +2,38 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 /// Cau hinh khi build: --dart-define=API_BASE_URL=https://... --dart-define=APP_TOKEN=...
-const apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8787');
-const appToken = String.fromEnvironment('APP_TOKEN', defaultValue: 'dev-token');
+const apiBaseUrl = String.fromEnvironment('API_BASE_URL',
+  defaultValue: kIsWeb ? 'http://127.0.0.1:8787' : 'http://10.0.2.2:8787');
+const appToken = String.fromEnvironment('APP_TOKEN');
 
 class ApiException implements Exception {
-  ApiException(this.message);
+  ApiException(this.message, {this.status});
   final String message;
+  final int? status;
   @override
   String toString() => message;
 }
 
 class ApiClient {
-  ApiClient({http.Client? client}) : _client = client ?? http.Client();
+  ApiClient({http.Client? client, this.token}) : _client = client ?? http.Client();
   final http.Client _client;
+  final String? Function()? token;
 
-  Map<String, String> get _headers => {'Content-Type': 'application/json', 'X-App-Token': appToken};
+  Map<String, String> get _headers {
+    final bearer = token?.call();
+    final host = Uri.parse(apiBaseUrl).host;
+    return {
+      'Content-Type': 'application/json',
+      if (bearer != null && bearer.isNotEmpty)
+        'Authorization': 'Bearer $bearer'
+      else if (appToken.isNotEmpty || const {'localhost', '127.0.0.1', '10.0.2.2'}.contains(host))
+        'X-App-Token': appToken.isEmpty ? 'dev-token' : appToken,
+    };
+  }
 
   Future<Map<String, dynamic>> _send(String method, String path, [Map<String, dynamic>? body]) async {
     final uri = Uri.parse('$apiBaseUrl$path');
@@ -32,11 +46,7 @@ class ApiClient {
 
     http.Response r;
     try {
-      try {
-        r = await once();
-      } on SocketException {
-        r = await once(); // thu lai 1 lan khi mang chap chon
-      }
+      r = await once();
     } on TimeoutException {
       throw ApiException('AI phản hồi quá lâu. Hãy thử tài liệu ngắn hơn hoặc thử lại.');
     } on SocketException {
@@ -53,12 +63,12 @@ class ApiClient {
     }
     if (r.statusCode >= 400) {
       throw ApiException(switch (r.statusCode) {
-        401 => 'Ứng dụng chưa được cấp quyền gọi máy chủ (sai APP_TOKEN).',
-        413 => 'Tài liệu quá lớn (tối đa ~4MB). Hãy dùng PDF ngắn hơn hoặc chụp từng trang.',
+        401 => 'Hãy đăng nhập hoặc kiểm tra cấu hình máy chủ AI rồi thử lại.',
+        413 => 'Tài liệu quá lớn. Hãy dùng bản ngắn hơn hoặc chụp từng trang.',
         429 => 'AI đang quá tải hoặc hết lượt. Đợi vài giây rồi thử lại.',
         503 => 'Máy chủ AI đang quá tải tạm thời. Hãy thử lại sau ít phút.',
         _ => 'AI gặp lỗi khi xử lý (${data['error'] ?? r.statusCode}). Hãy thử lại.',
-      });
+      }, status: r.statusCode);
     }
     return data;
   }
@@ -84,4 +94,13 @@ class ApiClient {
   Future<Map<String, dynamic>> exercises(Map<String, dynamic> body) => _send('POST', '/api/exercises', body);
   Future<Map<String, dynamic>> searchSources(String topic, String role) =>
       _send('POST', '/api/sources/search', {'topic': topic, 'role': role});
+
+  Future<Map<String, dynamic>> research(String topic, String scope) =>
+      _send('POST', '/api/study/research', {'topic': topic, 'scope': scope});
+  Future<Map<String, dynamic>> importWebSource(String url) =>
+      _send('POST', '/api/study/source', {'url': url});
+  Future<Map<String, dynamic>> studyOutline(Map<String, dynamic> body) => _send('POST', '/api/study/outline', body);
+  Future<Map<String, dynamic>> studyLesson(Map<String, dynamic> body) => _send('POST', '/api/study/lesson', body);
+  Future<Map<String, dynamic>> studyAsk(Map<String, dynamic> body) => _send('POST', '/api/study/ask', body);
+  Future<Map<String, dynamic>> studyArtifact(Map<String, dynamic> body) => _send('POST', '/api/study/artifact', body);
 }

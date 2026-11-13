@@ -1,4 +1,4 @@
-# Backend AI (Node, không phụ thuộc thư viện)
+# Backend AI (Node.js 24 trở lên)
 
 Giữ API key, ép đầu ra JSON theo schema, kiểm tra khối trước khi trả về app.
 
@@ -10,18 +10,19 @@ Giữ API key, ép đầu ra JSON theo schema, kiểm tra khối trước khi tr
 | API | Interactions API (`/v1beta/interactions`) | Responses API |
 | Key | `GEMINI_API_KEY` (aistudio.google.com) | `OPENAI_API_KEY` |
 | Model mặc định | `gemini-3.5-flash-lite` | `gpt-6-luna` |
-| File tải lên | Gemini Files API, **giữ 48 giờ** (khóa học cũ hơn 48 giờ sẽ không sinh thêm bài được) | OpenAI Files, giữ đến khi xóa |
-| Tìm nguồn web | `google_search` (link có thể là link chuyển hướng của Google; server lấy tên miền thật từ tiêu đề). **Không có ở gói miễn phí** → server tự dùng Wikipedia. Bật thật: AI Studio → Projects/API keys → "Set up billing", trả trước ≥ 5 USD → 5.000 lượt tìm/tháng miễn phí, sau đó 14 USD/1.000 lượt | `web_search` |
-| Lưu ý | Gói miễn phí giới hạn số lần gọi/phút; dữ liệu gói miễn phí có thể được Google dùng để cải thiện sản phẩm | Dùng credits BTC cấp |
+| File tải lên | Gemini Files API, giữ 48 giờ. Tệp gốc của tài khoản được lưu ở kho riêng để gửi lại khi cần. | OpenAI Files |
+| Tìm nguồn cho sổ | Tavily Search và Extract khi có `TAVILY_API_KEY`. Bộ nguồn công khai tích hợp cho DSA, Toán, Lý và Hóa. | Cùng luồng tìm nguồn |
+| Lưu ý | Quota tính theo project. Dùng tài liệu công khai khi thử với Gemini API miễn phí. | Quota và tín dụng theo project |
 
 Code: `lib/ai.js` (chọn nhà cung cấp, model, ghi chi phí), `lib/providers/gemini.js`, `lib/providers/openai.js`.
 
 ## Chạy cục bộ
 ```bash
-cp .env.example .env   # điền AI_PROVIDER, GEMINI_API_KEY (hoặc OPENAI_API_KEY) và APP_TOKEN
-npm run dev            # http://localhost:8787
+npm install
+npm run dev            # http://127.0.0.1:8787
 npm test
 ```
+Tạo `.env` với `AI_PROVIDER=gemini`, `GEMINI_API_KEY` và `APP_TOKEN` dành cho máy cục bộ. Có thể thêm `TAVILY_API_KEY` để thử tìm nguồn trực tiếp. Nếu dùng OpenAI, đặt `AI_PROVIDER=openai` và `OPENAI_API_KEY`.
 Thử nhanh:
 ```bash
 curl -H "X-App-Token: <APP_TOKEN>" http://localhost:8787/api/health
@@ -29,16 +30,22 @@ curl -H "X-App-Token: <APP_TOKEN>" http://localhost:8787/api/health
 
 ## Triển khai Vercel
 1. Tạo tài khoản Vercel, cài CLI: `npm i -g vercel`.
-2. Trong thư mục `server/`: `vercel` rồi `vercel --prod`.
-3. Đặt biến môi trường trong Project Settings: `AI_PROVIDER`, `GEMINI_API_KEY` hoặc `OPENAI_API_KEY`, `APP_TOKEN`, và tùy chọn `MODEL_OUTLINE`, `MODEL_LESSON`, `MODEL_SMALL`.
-4. Build app với `--dart-define=API_BASE_URL=https://<tên>.vercel.app`.
+2. Thiết lập Supabase và cấu hình biến môi trường theo [hướng dẫn tài khoản beta](../docs/BETA-TAI-KHOAN.md).
+3. Đặt `AI_PROVIDER`, `GEMINI_API_KEY` hoặc `OPENAI_API_KEY`. Có thể thêm `MODEL_OUTLINE`, `MODEL_LESSON`, `MODEL_SMALL` và `TAVILY_API_KEY`.
+4. Triển khai từ thư mục `server/`, rồi build app với `API_BASE_URL` của backend và cấu hình Supabase cho client.
 
-Giới hạn: body tối đa ~4.5MB (PDF ≤ 4MB), mỗi request tối đa 60 giây (`vercel.json`).
+Tệp tải lên cục bộ tối đa 3 MiB để vừa phần dữ liệu Base64. Bản tài khoản tải trực tiếp lên kho riêng với giới hạn 10 MiB. Mỗi request Vercel tối đa 60 giây theo cấu hình repo.
 
 ## Endpoint
 | Endpoint | Việc |
 |---|---|
-| `POST /api/upload` | PDF/ảnh → Files API của nhà cung cấp → `fileId` |
+| `POST /api/study/research` | Tìm theo chủ đề và phạm vi, trả nguồn phân loại và nhóm còn thiếu |
+| `POST /api/study/source` | Nhập URL, cố gắng đọc nội dung và giữ liên kết khi chưa đọc được |
+| `POST /api/study/outline` | Tạo sơ đồ theo chặng với mục tiêu, bài tiên quyết và nguồn |
+| `POST /api/study/lesson` | Tạo bài giảng theo bước, mô phỏng và câu kiểm tra |
+| `POST /api/study/ask` | Hỏi đáp theo nguồn đã chọn, có thể truyền bước học |
+| `POST /api/study/artifact` | Tóm tắt, quiz nhanh, quiz tương tác và thẻ ghi nhớ |
+| `POST /api/upload` | Demo cục bộ tải PDF/ảnh vào Files API, trả `fileId` và đoạn văn theo trang PDF nếu đọc được |
 | `POST /api/course/outline` | Lên lộ trình khóa học |
 | `POST /api/lesson` | Sinh bài học = chuỗi khối widget |
 | `POST /api/exercises` | Bộ đề luyện: thêm N câu theo độ khó easy/medium/hard, không trùng câu đã có |

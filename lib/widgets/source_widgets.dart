@@ -55,6 +55,8 @@ class SourceAddBar extends StatelessWidget {
     if (ok == true && body.text.trim().isNotEmpty) {
       onAdd([SourceDraft.text(title: title.text.trim().isEmpty ? 'Văn bản dán vào' : title.text.trim(), text: body.text.trim())]);
     }
+    title.dispose();
+    body.dispose();
   }
 
   Future<void> _web(BuildContext context) async {
@@ -113,13 +115,14 @@ class _DiscoverSheetState extends State<_DiscoverSheet> {
     });
     try {
       final r = await context.read<AppState>().searchSources(t);
+      if (!mounted) return;
       setState(() {
         _results = r;
         _selected.addAll(r.where((s) => s.trusted).take(3).map((s) => s.url));
         if (r.isEmpty) _error = 'Không tìm thấy nguồn phù hợp. Hãy thử chủ đề cụ thể hơn.';
       });
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     }
     if (mounted) setState(() => _loading = false);
   }

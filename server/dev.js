@@ -13,11 +13,19 @@ const routes = {
   'POST /api/simulation': () => import('./api/simulation.js'),
   'POST /api/ask': () => import('./api/ask.js'),
   'POST /api/exercises': () => import('./api/exercises.js'),
+  'POST /api/study/research': () => import('./api/study/research.js'),
+  'POST /api/study/source': () => import('./api/study/source.js'),
+  'POST /api/study/outline': () => import('./api/study/outline.js'),
+  'POST /api/study/lesson': () => import('./api/study/lesson.js'),
+  'POST /api/study/ask': () => import('./api/study/ask.js'),
+  'POST /api/study/artifact': () => import('./api/study/artifact.js'),
 };
 
 http.createServer(async (req, res) => {
   const path = (req.url || '').split('?')[0];
-  const load = routes[`${req.method} ${path}`];
+  const load = req.method === 'OPTIONS'
+    ? routes[`POST ${path}`] || routes[`GET ${path}`]
+    : routes[`${req.method} ${path}`];
   res.status = (c) => { res.statusCode = c; return res; };
   res.json = (o) => { res.setHeader('Content-Type', 'application/json; charset=utf-8'); res.end(JSON.stringify(o)); };
   if (!load) return res.status(404).json({ error: 'Khong tim thay' });
@@ -25,4 +33,4 @@ http.createServer(async (req, res) => {
   for await (const c of req) chunks.push(c);
   try { req.body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}; } catch { return res.status(400).json({ error: 'JSON khong hop le' }); }
   (await load()).default(req, res);
-}).listen(8787, () => console.log('Dev server: http://localhost:8787'));
+}).listen(8787, '127.0.0.1', () => console.log('Dev server: http://127.0.0.1:8787'));

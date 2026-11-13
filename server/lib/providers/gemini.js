@@ -11,7 +11,7 @@ function key() {
 }
 
 function failFrom(status, text) {
-  console.error('[gemini]', status, String(text).slice(0, 500));
+  console.error('[gemini]', status);
   if (status === 429) {
     const quota = /quota/i.test(String(text));
     return fail(429, quota ? 'Key Gemini da het han muc (quota) cho chuc nang nay' : 'Gemini dang gioi han toc do. Doi vai giay roi thu lai');
@@ -22,8 +22,10 @@ function failFrom(status, text) {
 
 /** Tai file len Gemini Files API (resumable). File duoc giu 48 gio. Tra ve uri lam fileId. */
 export async function uploadFile({ buffer, filename, mimeType }) {
+  const signal = AbortSignal.timeout(12_000);
   const start = await fetch(`${BASE}/upload/v1beta/files`, {
     method: 'POST',
+    signal,
     headers: {
       'x-goog-api-key': key(),
       'X-Goog-Upload-Protocol': 'resumable',
@@ -38,6 +40,7 @@ export async function uploadFile({ buffer, filename, mimeType }) {
   if (!start.ok || !uploadUrl) throw failFrom(start.status, await start.text());
   const done = await fetch(uploadUrl, {
     method: 'POST',
+    signal,
     headers: {
       'Content-Length': String(buffer.length),
       'X-Goog-Upload-Offset': '0',
@@ -73,7 +76,7 @@ export function adaptSchema(s) {
   return out;
 }
 
-export async function generate({ model, system, parts, schema, webSearch }) {
+export async function generate({ model, system, parts, schema, webSearch, signal, maxAttempts = 3 }) {
   const body = {
     model,
     system_instruction: system,
@@ -84,10 +87,11 @@ export async function generate({ model, system, parts, schema, webSearch }) {
   if (webSearch) body.tools = [{ type: 'google_search' }];
   // Thu lai khi model qua tai tam thoi (500/502/503/504): cho 2s roi 5s.
   let r, raw;
-  for (const wait of [0, 2000, 5000]) {
+  for (const wait of [0, 2000, 5000].slice(0, Math.max(1, maxAttempts))) {
     if (wait) await new Promise((ok) => setTimeout(ok, wait));
     r = await fetch(`${BASE}/v1beta/interactions`, {
       method: 'POST',
+      signal,
       headers: { 'x-goog-api-key': key(), 'Content-Type': 'application/json', 'Api-Revision': API_REVISION },
       body: JSON.stringify(body),
     });

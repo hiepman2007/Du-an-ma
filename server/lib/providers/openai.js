@@ -15,7 +15,7 @@ async function request(path, init) {
   let data;
   try { data = JSON.parse(text); } catch { data = { raw: text }; }
   if (!r.ok) {
-    console.error('[openai]', r.status, text.slice(0, 500));
+    console.error('[openai]', r.status);
     throw fail(r.status === 429 ? 429 : 502, r.status === 429 ? 'OpenAI dang gioi han toc do hoac het credits' : 'OpenAI tra loi loi');
   }
   return data;
@@ -25,7 +25,7 @@ export async function uploadFile({ buffer, filename, mimeType }) {
   const form = new FormData();
   form.append('purpose', mimeType.startsWith('image/') ? 'vision' : 'user_data');
   form.append('file', new Blob([buffer], { type: mimeType }), filename);
-  const data = await request('/files', { method: 'POST', body: form });
+  const data = await request('/files', { method: 'POST', body: form, signal: AbortSignal.timeout(12_000) });
   return data.id;
 }
 
@@ -34,7 +34,7 @@ function toContent(p) {
   return p.mimeType?.startsWith('image/') ? { type: 'input_image', file_id: p.fileId } : { type: 'input_file', file_id: p.fileId };
 }
 
-export async function generate({ model, system, parts, schemaName, schema, webSearch }) {
+export async function generate({ model, system, parts, schemaName, schema, webSearch, signal }) {
   const body = {
     model,
     input: [
@@ -46,6 +46,7 @@ export async function generate({ model, system, parts, schemaName, schema, webSe
   if (webSearch) body.tools = [{ type: 'web_search' }];
   const data = await request('/responses', {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
