@@ -74,7 +74,7 @@ Viết ngày 13/11/2026, trước hackathon 14/11. Kế hoạch này thay plan "
 1. ~~Commit phần Codex đã làm làm mốc~~ (xong, nhánh `v2-lo-trinh-quiz-chat`).
 2. Sơ đồ lộ trình với trạng thái, hai chỉ số, bảng chi tiết bài (2.1). Chế độ học làm sau cùng của bước này.
 3. Màn tạo quiz và màn làm quiz (2.2), lưu điểm theo chủ đề để lộ trình hiện mức nắm vững.
-4. Gộp hai màn chat và làm giao diện kiểu ChatGPT đầy đủ (2.3).
+4. ~~Gộp hai màn chat và làm giao diện kiểu ChatGPT đầy đủ (2.3).~~ Xong, trừ stream thật từ server (đang hiện chữ dần ở phía app).
 5. Lịch học, trò chơi Ghép nhanh, thi thử, thẻ đến hạn (mục 3).
 6. Build APK, chạy thử trên điện thoại thật: tạo khóa từ một dòng, xem sơ đồ, học bài 1, làm quiz, hỏi gia sư, đóng rồi mở lại app vẫn còn tiến độ.
 

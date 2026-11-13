@@ -370,7 +370,7 @@ export async function answerStudyQuestion(body = {}) {
   return generateStudy('study-ask', 'small', body, async ({ evidence }, call) => {
     const { json } = await call(
       `Môn: ${cleanText(body.subject, 100)}. Bài: ${cleanText(body.lessonTitle, 150)}. Bước học: ${cleanText(body.step, 400)}. Hội thoại gần đây: ${JSON.stringify(history)}. Câu hỏi mới: ${question}`,
-      `${askSystem(role, { hasSources: evidence.size > 0 })} ${sourceRules} Nếu nguồn đã chọn không đủ, hãy nêu rõ và không gắn nguồn không liên quan.`,
+      `${askSystem(role, { hasSources: evidence.size > 0, socratic: body.socratic === true })} ${sourceRules} Nếu nguồn đã chọn không đủ, hãy nêu rõ và không gắn nguồn không liên quan.`,
       contentSchema(types),
     );
     const blocks = validateStudyBlocks(json?.blocks, evidence, types).slice(0, 5);

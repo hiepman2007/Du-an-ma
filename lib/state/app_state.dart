@@ -359,25 +359,6 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
-  Future<void> askNotebook(Course course, String question) async {
-    await _run(course, 'ask', () async {
-      final history = course.notebookChat.takeLast(8).map((m) => {
-        'from': m.fromUser ? 'user' : 'tutor', 'text': m.plainText,
-      }).toList();
-      final out = await api.studyAsk({'role': _roleId, 'subject': course.subject,
-        'question': question, 'history': history, ...course.materialJson()});
-      if (!courses.contains(course)) return;
-      final blocks = Block.parseList(out['blocks']);
-      if (blocks.isEmpty) throw ApiException('Chưa nhận được câu trả lời.');
-      course.notebookChat.addAll([
-        ChatMessage(fromUser: true, text: question),
-        ChatMessage(fromUser: false, blocks: blocks),
-      ]);
-      notifyListeners();
-      await _save();
-    });
-  }
-
   Future<StudyArtifact?> createArtifact(Course course, StudyArtifactKind kind, {bool webOnly = false, bool regenerate = false}) {
     return _run(course, 'artifact', () async {
       final material = course.materialJson(webOnly: webOnly);
@@ -661,45 +642,116 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
-  /// Gia su hoi dap: them tin nguoi hoc, goi AI, them cau tra loi (chuoi khoi). Loi thi bo tin nguoi hoc va nem loi.
-  /// [webSearch]: cho phep tra cuu them tren mang (mac dinh lay theo cai dat cua khoa hoc).
-  Future<void> ask(Course course, Lesson lesson, String question, {bool? webSearch}) async {
-    final web = webSearch ?? course.allowWeb;
-    final history = lesson.chat.map((m) => {'from': m.fromUser ? 'user' : 'tutor', 'text': m.plainText}).toList();
-    final userMsg = ChatMessage(fromUser: true, text: question, webMode: web ? 'requested' : 'off');
-    lesson.chat.add(userMsg);
+  // --- Gia su hoi dap (mot man chat chung, nhieu cuoc tro chuyen) ---
+  final Set<String> _pendingThreads = {};
+  final Map<String, int> _threadRuns = {};
+
+  bool isThreadBusy(ChatThread thread) => _pendingThreads.contains(thread.id);
+
+  /// Cuoc tro chuyen moi voi ngu canh [lessonId] (null = ca khoa). Dung lai cuoc dang trong neu co.
+  ChatThread newThread(Course course, {String? lessonId}) {
+    final empty = course.threads.where((t) => t.messages.isEmpty && !isThreadBusy(t)).firstOrNull;
+    if (empty != null) {
+      empty.lessonId = lessonId;
+      return empty;
+    }
+    final thread = ChatThread(id: _uuid.v4(), lessonId: lessonId);
+    course.threads.add(thread);
+    return thread;
+  }
+
+  /// Cuoc tro chuyen gan nhat cua ngu canh nay, khong co thi tao moi.
+  ChatThread latestThread(Course course, {String? lessonId}) =>
+      course.threads.where((t) => t.lessonId == lessonId && t.messages.isNotEmpty).lastOrNull ?? newThread(course, lessonId: lessonId);
+
+  /// Gui cau hoi: them tin nguoi hoc, goi AI, them cau tra loi (chuoi khoi). Loi thi bo tin nguoi hoc va nem loi.
+  /// [web]: cho tra cuu them tren mang (mac dinh theo cai dat cua khoa). [socratic]: che do Goi mo.
+  Future<void> sendChat(Course course, ChatThread thread, String question, {bool? web, bool socratic = false}) async {
+    if (isThreadBusy(thread)) return;
+    final useWeb = web ?? course.allowWeb;
+    final lesson = course.lessonById(thread.lessonId);
+    final history = thread.messages.takeLast(8).map((m) => {'from': m.fromUser ? 'user' : 'tutor', 'text': m.plainText}).toList();
+    final userMsg = ChatMessage(fromUser: true, text: question, webMode: useWeb ? 'requested' : 'off');
+    thread.messages.add(userMsg);
+    if (thread.title.isEmpty) thread.title = ChatThread.titleFor(question);
+    thread.updatedAt = DateTime.now();
+    if (!course.threads.contains(thread)) course.threads.add(thread);
+    final run = (_threadRuns[thread.id] ?? 0) + 1;
+    _threadRuns[thread.id] = run;
+    _pendingThreads.add(thread.id);
     notifyListeners();
     try {
-      final out = await (web ? api.ask : api.studyAsk)({
+      final blocks = lesson?.blocks;
+      final out = await (useWeb ? api.ask : api.studyAsk)({
         'role': _roleId,
         'subject': course.subject,
-        'lessonTitle': lesson.title,
+        if (lesson != null) 'lessonTitle': lesson.title,
+        if (blocks != null && blocks.isNotEmpty) 'step': blocks[lesson!.stepIndex.clamp(0, blocks.length - 1)].title ?? '',
         'question': question,
         'history': history,
-        'webSearch': web,
-        if (lesson.blocks?.isNotEmpty ?? false)
-          'step': lesson.blocks![lesson.stepIndex.clamp(0, lesson.blocks!.length - 1)].title ?? '',
+        'webSearch': useWeb,
+        'socratic': socratic,
         ...course.materialJson(),
       });
-      lesson.chat.add(ChatMessage(
+      if (_threadRuns[thread.id] != run) return; // nguoi hoc da bam dung
+      final answer = Block.parseList(out['blocks']);
+      if (answer.isEmpty) throw ApiException('Chưa nhận được câu trả lời.');
+      thread.messages.add(ChatMessage(
         fromUser: false,
-        blocks: Block.parseList(out['blocks']),
+        blocks: answer,
         web: ((out['web'] as List?) ?? []).whereType<Map>().map((e) => WebSource.fromJson(Map<String, dynamic>.from(e))).toList(),
         webMode: out['webMode'] ?? 'off',
       ));
+      thread.updatedAt = DateTime.now();
     } catch (_) {
-      lesson.chat.remove(userMsg);
+      if (_threadRuns[thread.id] != run) return;
+      thread.messages.remove(userMsg);
+      rethrow;
+    } finally {
+      if (_threadRuns[thread.id] == run) _pendingThreads.remove(thread.id);
+      notifyListeners();
+    }
+    if (courses.contains(course)) await _save();
+  }
+
+  /// Dung cau tra loi dang sinh: giu cau hoi, bo qua ket qua khi ve.
+  Future<void> stopChat(ChatThread thread) async {
+    if (!isThreadBusy(thread)) return;
+    _threadRuns[thread.id] = (_threadRuns[thread.id] ?? 0) + 1;
+    _pendingThreads.remove(thread.id);
+    notifyListeners();
+    await _save();
+  }
+
+  /// Tao lai cau tra loi cuoi. Loi thi tra lai cau tra loi cu.
+  Future<void> regenerateChat(Course course, ChatThread thread, {bool? web, bool socratic = false}) async {
+    final index = thread.messages.lastIndexWhere((m) => m.fromUser);
+    if (index < 0 || isThreadBusy(thread)) return;
+    final removed = thread.messages.sublist(index);
+    thread.messages.removeRange(index, thread.messages.length);
+    try {
+      await sendChat(course, thread, removed.first.text, web: web, socratic: socratic);
+    } catch (_) {
+      thread.messages.addAll(removed);
       notifyListeners();
       rethrow;
     }
-    if (courses.contains(course)) {
-      notifyListeners();
-      await _save();
-    }
   }
 
-  Future<void> clearChat(Lesson lesson) async {
-    lesson.chat.clear();
+  /// Sua cau hoi: bo tin nhan tu [index] tro di, tra ve noi dung de dien lai vao o nhap.
+  Future<String> editChatFrom(ChatThread thread, int index) async {
+    if (index < 0 || index >= thread.messages.length || isThreadBusy(thread)) return '';
+    final text = thread.messages[index].text;
+    thread.messages.removeRange(index, thread.messages.length);
+    notifyListeners();
+    await _save();
+    return text;
+  }
+
+  Future<void> deleteThread(Course course, ChatThread thread) async {
+    _threadRuns[thread.id] = (_threadRuns[thread.id] ?? 0) + 1;
+    _pendingThreads.remove(thread.id);
+    course.threads.remove(thread);
     notifyListeners();
     await _save();
   }

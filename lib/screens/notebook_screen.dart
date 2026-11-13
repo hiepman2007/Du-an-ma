@@ -5,15 +5,14 @@ import '../models/models.dart';
 import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
-import '../widgets/blocks/block_renderer.dart';
 import '../widgets/source_widgets.dart';
-import '../widgets/study_citation.dart';
 import 'roadmap_screen.dart';
 import 'canvas_screen.dart';
 import 'quiz_builder_screen.dart';
 import 'quiz_player_screen.dart';
 import 'study_artifact_screen.dart';
 import 'study_goal_sheet.dart';
+import 'tutor_chat_screen.dart';
 
 const _sourceLabels = {
   'lecture': 'Bài giảng và tham khảo',
@@ -32,9 +31,7 @@ class NotebookScreen extends StatefulWidget {
 }
 
 class _NotebookScreenState extends State<NotebookScreen> {
-  final _input = TextEditingController();
-  final _chatScroll = ScrollController();
-  String? _chatError, _sourceError, _studioError;
+  String? _sourceError, _studioError;
   int _tab = 1;
   bool _addingSources = false;
   bool _webOnly = false;
@@ -54,13 +51,6 @@ class _NotebookScreenState extends State<NotebookScreen> {
         if (mounted) _plan(topic: _topicFrom(prompt));
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _input.dispose();
-    _chatScroll.dispose();
-    super.dispose();
   }
 
   String _topicFrom(String input) {
@@ -100,22 +90,13 @@ class _NotebookScreenState extends State<NotebookScreen> {
     }
   }
 
-  Future<void> _send(String text) async {
-    final question = text.trim();
-    final state = context.read<AppState>();
-    if (question.isEmpty || state.isBusy(_course, 'ask')) return;
+  /// Khung chat chuyen cau "lap lo trinh" sang bang muc tieu khi so chua co lo trinh.
+  Future<bool> _intercept(String question) async {
     if (_course.lessons.isEmpty && RegExp(r'lộ trình|tạo khóa học|lập kế hoạch học', caseSensitive: false).hasMatch(question)) {
       await _plan(topic: _topicFrom(question));
-      return;
+      return true;
     }
-    final wasInput = _input.text.trim() == question;
-    if (wasInput) _input.clear();
-    await _withError(() => state.askNotebook(_course, question), (message) => _chatError = message);
-    if (!mounted) return;
-    if (_chatError != null && wasInput && _input.text.isEmpty) _input.text = question;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_chatScroll.hasClients) _chatScroll.jumpTo(_chatScroll.position.maxScrollExtent);
-    });
+    return false;
   }
 
   Future<void> _addSources(List<SourceDraft> sources) async {
@@ -241,70 +222,19 @@ class _NotebookScreenState extends State<NotebookScreen> {
     ]);
   }
 
-  Widget _chat(AppState state) {
-    final busy = state.isBusy(_course, 'ask');
-    final messages = _course.notebookChat;
-    return Column(children: [
-      Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 0), child: _heading('Hỏi đáp', Icons.chat_bubble_outline)),
-      Expanded(child: ListView(
-        controller: _chatScroll, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        children: [
-          if (messages.isEmpty) ...[
-            const SizedBox(height: 12),
-            Text(_course.activeSources.isEmpty ? 'Bạn muốn tìm hiểu gì?' : 'Hỏi về tài liệu trong sổ',
-              style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            Text(_course.activeSources.isEmpty
-              ? 'Thêm nguồn để hỏi bài hoặc nhập một chủ đề để lập lộ trình.'
-              : 'Câu trả lời sử dụng những nguồn đang được chọn.'),
-            const SizedBox(height: 12),
-            Wrap(spacing: 6, runSpacing: 6, children: [
-              if (_course.lessons.isEmpty) ActionChip(label: const Text('Lập lộ trình'), onPressed: () => _plan()),
-              if (_course.enabledSources.isNotEmpty) ...[
-                ActionChip(label: const Text('Tóm tắt'), onPressed: () => _artifact(StudyArtifactKind.summary)),
-                ActionChip(label: const Text('Tạo quiz'), onPressed: () => _artifact(StudyArtifactKind.quickQuiz)),
-                ActionChip(label: const Text('Ý chính là gì?'), onPressed: () => _send('Những ý chính trong các nguồn này là gì?')),
-              ],
-            ]),
-          ],
-          for (final message in messages)
-            if (message.fromUser)
-              Align(alignment: Alignment.centerRight, child: Card(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                child: Padding(padding: const EdgeInsets.all(12), child: SelectableText(message.text)),
-              ))
-            else ...[
-              const SizedBox(height: 12),
-              for (final block in message.blocks) ...[
-                BlockRenderer(block: block, lesson: Lesson(id: _course.id, title: _course.title), onAnswered: (_, _, _) {}),
-                StudyCitation(course: _course, block: block),
-              ],
-              Align(alignment: Alignment.centerLeft, child: TextButton.icon(
-                icon: const Icon(Icons.bookmark_add_outlined), label: const Text('Lưu ghi chú'),
-                onPressed: () async {
-                  await state.saveChatNote(_course, message);
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu trong Studio.')));
-                },
-              )),
-            ],
-          if (busy) const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: LinearProgressIndicator()),
-          if (_chatError != null) _error(_chatError!),
-        ],
-      )),
-      SafeArea(top: false, child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-        child: Row(children: [
-          if (_course.lessons.isEmpty) IconButton(tooltip: 'Lập lộ trình', onPressed: () => _plan(), icon: const Icon(Icons.route_outlined)),
-          Expanded(child: TextField(controller: _input, textInputAction: TextInputAction.send,
-            maxLength: 1200, onSubmitted: _send, decoration: const InputDecoration(
-              hintText: 'Hỏi bài hoặc yêu cầu lập lộ trình…', counterText: '',
-            ))),
-          const SizedBox(width: 8),
-          IconButton.filled(tooltip: 'Gửi', onPressed: busy ? null : () => _send(_input.text), icon: const Icon(Icons.arrow_upward)),
-        ]),
-      )),
-    ]);
-  }
+  Widget _chat(AppState state) => TutorChat(
+    courseId: _course.id,
+    onIntercept: _intercept,
+    onSaveNote: (message) => state.saveChatNote(_course, message),
+    emptyActions: [
+      if (_course.lessons.isEmpty) ActionChip(avatar: const Icon(Icons.route_outlined, size: 18),
+        label: const Text('Lập lộ trình'), onPressed: () => _plan()),
+      if (_course.enabledSources.isNotEmpty) ...[
+        ActionChip(label: const Text('Tóm tắt'), onPressed: () => _artifact(StudyArtifactKind.summary)),
+        ActionChip(label: const Text('Tạo quiz'), onPressed: () => _artifact(StudyArtifactKind.quickQuiz)),
+      ],
+    ],
+  );
 
   Widget _studio(AppState state) {
     final planning = state.isBusy(_course, 'plan');

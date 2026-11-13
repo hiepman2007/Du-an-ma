@@ -10,12 +10,12 @@ import { queriesFor } from '../lib/wiki.js';
 
 const MAX_HISTORY = 6;
 
-// Body: { role, subject?, lessonTitle?, question, history?: [{from:'user'|'tutor', text}], webSearch?: bool,
+// Body: { role, subject?, lessonTitle?, question, history?: [{from:'user'|'tutor', text}], webSearch?: bool, socratic?: bool,
 //         files?, fileId?, mimeType?, text?, sources? }
 //   -> { blocks[], web: [{title,url,domain,snippet,trust}], webMode: 'off'|'search'|'wikipedia' }
 // Mac dinh (webSearch=false) chi tra loi tu cac nguon da nap, giong NotebookLM.
 export default wrap(async (req, res) => {
-  const { role, subject, lessonTitle, question, history, webSearch, files, fileId, mimeType, text, sources } = req.body || {};
+  const { role, subject, lessonTitle, question, history, webSearch, socratic, files, fileId, mimeType, text, sources } = req.body || {};
   if (!question || String(question).length > 1000) throw fail(400, 'Cau hoi trong hoac qua dai (toi da 1000 ky tu)');
   const convo = (Array.isArray(history) ? history : [])
     .slice(-MAX_HISTORY)
@@ -31,7 +31,7 @@ export default wrap(async (req, res) => {
   const common = {
     step: 'ask',
     kind: 'lesson',
-    system: askSystem(role, { web: !!webSearch, hasSources: hasMaterial(material) }),
+    system: askSystem(role, { web: !!webSearch, hasSources: hasMaterial(material), socratic: socratic === true }),
     schemaName: 'tutor_answer',
     schema: blocksOnlySchema,
   };

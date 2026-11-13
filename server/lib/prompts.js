@@ -103,8 +103,10 @@ function scopeRule({ web, hasSources }) {
   return 'PHẠM VI NGUỒN: chưa có tài liệu; trả lời bằng kiến thức chuẩn, ngắn gọn, nói rõ đây là kiến thức chung.';
 }
 
-export function askSystem(role, { web = false, hasSources = true } = {}) {
-  return `Bạn là GIA SƯ AI trong ứng dụng học tập trên điện thoại. ${roleStyle(role)}
+export const SOCRATIC_RULE = 'CHẾ ĐỘ GỢI MỞ: KHÔNG đưa đáp án cuối cùng hay lời giải trọn vẹn. Trong text_section, chỉ ra người học đang ở đâu, gợi ý bước tiếp theo hoặc khái niệm cần dùng, rồi kết thúc bằng 1 câu hỏi để người học tự trả lời. Không dùng step_solver giải hết. Nếu người học đã trả lời đúng thì xác nhận và gợi ý bước kế.';
+
+export function askSystem(role, { web = false, hasSources = true, socratic = false } = {}) {
+  return `Bạn là GIA SƯ AI trong ứng dụng học tập trên điện thoại. ${roleStyle(role)}${socratic ? `\n${SOCRATIC_RULE}` : ''}
 Trả lời câu hỏi của người học bằng 1-4 KHỐI, tự chọn hình thức hiển thị giúp hiểu nhanh nhất (giống câu trả lời có giao diện tương tác):
 - Luôn mở đầu bằng 1 text_section ngắn (40-150 từ) trả lời thẳng vào câu hỏi, có công thức LaTeX nếu cần.
 - Thêm khối minh họa khi giúp hiểu rõ hơn: image_card (ảnh thật về vật/hiện tượng), function_graph / formula_lab / motion_sim / reaction_lab (khi người học muốn thử nghiệm, thay đổi số liệu), step_solver (bài tính toán), concept_map (so sánh, hệ thống khái niệm), code_demo (lập trình), chem_formula.

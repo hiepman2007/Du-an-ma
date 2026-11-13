@@ -90,7 +90,7 @@ void main() {
     await restored.setLessonCompleted(lesson, true);
 
     await restored.addSources(notebook, [SourceDraft.text(text: 'Xác suất biến cố chắc chắn bằng 1.')]);
-    await restored.askNotebook(notebook, 'Xác suất biến cố chắc chắn bằng bao nhiêu?');
+    await restored.sendChat(notebook, restored.newThread(notebook), 'Xác suất biến cố chắc chắn bằng bao nhiêu?');
     final artifact = (await restored.createArtifact(notebook, StudyArtifactKind.quickQuiz))!;
     await restored.recordAttempt(notebook, artifact, QuizAttempt(id: 'attempt', results: {artifact.questionKey(0): true}, total: 1));
     await restored.createArtifact(notebook, StudyArtifactKind.quickQuiz, regenerate: true);
@@ -100,7 +100,8 @@ void main() {
     final back = reloaded.selectedCourse!;
     expect(back.lessons.first.isDone, isTrue);
     expect(back.lessons.first.stepIndex, 1);
-    expect(back.notebookChat, hasLength(2));
+    expect(back.threads.single.messages, hasLength(2));
+    expect(back.threads.single.title, contains('Xác suất'));
     expect(back.artifacts, hasLength(3));
     expect(back.artifacts[1].attempts.single.score, 1);
   });

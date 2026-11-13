@@ -599,9 +599,9 @@ class Course {
     this.researchMode = '',
     this.missingCategories = const [],
     this.isSample = false,
-    List<ChatMessage>? notebookChat,
+    List<ChatThread>? threads,
     List<StudyArtifact>? artifacts,
-  }) : sources = sources ?? [], notebookChat = notebookChat ?? [], artifacts = artifacts ?? [];
+  }) : sources = sources ?? [], threads = threads ?? [], artifacts = artifacts ?? [];
 
   final String id;
   String title;
@@ -622,8 +622,11 @@ class Course {
   String researchMode;
   List<String> missingCategories;
   final bool isSample;
-  final List<ChatMessage> notebookChat;
+  /// Cac cuoc tro chuyen voi gia su (ca khoa hoac mot bai), moi nhat o cuoi.
+  final List<ChatThread> threads;
   final List<StudyArtifact> artifacts;
+
+  Lesson? lessonById(String? id) => id == null ? null : lessons.where((l) => l.id == id).firstOrNull;
 
   List<CourseSource> get activeSources => sources.where((s) => !s.removed).toList();
   List<CourseSource> get enabledSources => activeSources.where((s) => s.enabled).toList();
@@ -653,7 +656,24 @@ class Course {
     return m;
   }
 
-  factory Course.fromJson(Map<String, dynamic> j) => Course(
+  factory Course.fromJson(Map<String, dynamic> j) {
+    final course = Course._fromJson(j);
+    if (j['threads'] == null) course._migrateChats(_maps(j['notebook_chat']).map(ChatMessage.fromJson).toList());
+    return course;
+  }
+
+  /// Du lieu cu: chat cua so (notebook_chat) va chat rieng tung bai (Lesson.chat) -> cuoc tro chuyen.
+  void _migrateChats(List<ChatMessage> notebookChat) {
+    if (notebookChat.isNotEmpty) threads.add(ChatThread.from(notebookChat));
+    for (final lesson in lessons) {
+      if (lesson.chat.isEmpty) continue;
+      threads.add(ChatThread.from(List.of(lesson.chat), lessonId: lesson.id));
+      lesson.chat.clear();
+    }
+    threads.sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+  }
+
+  factory Course._fromJson(Map<String, dynamic> j) => Course(
         id: j['id'],
         title: j['title'] ?? '',
         goal: j['goal'] ?? '',
@@ -668,7 +688,7 @@ class Course {
         researchMode: j['research_mode'] ?? '',
         missingCategories: _strs(j['missing_categories']),
         isSample: j['is_sample'] == true || j['id'] == 'sample-ohm',
-        notebookChat: _maps(j['notebook_chat']).map(ChatMessage.fromJson).toList(),
+        threads: _maps(j['threads']).map(ChatThread.fromJson).toList(),
         artifacts: _maps(j['artifacts']).map(StudyArtifact.fromJson).toList(),
       );
 
@@ -701,7 +721,7 @@ class Course {
         'research_mode': researchMode,
         'missing_categories': missingCategories,
         'is_sample': isSample,
-        'notebook_chat': notebookChat.map((m) => m.toJson()).toList(),
+        'threads': threads.map((t) => t.toJson()).toList(),
         'artifacts': artifacts.map((a) => a.toJson()).toList(),
       };
 
@@ -759,5 +779,47 @@ class ChatMessage {
         'web': web.map((w) => w.toJson()).toList(),
         'webMode': webMode,
         'at': at.toIso8601String(),
+      };
+}
+
+/// Mot cuoc tro chuyen voi gia su. [lessonId] null = ngu canh ca khoa hoc.
+class ChatThread {
+  ChatThread({required this.id, this.title = '', this.lessonId, List<ChatMessage>? messages, DateTime? updatedAt})
+      : messages = messages ?? [],
+        updatedAt = updatedAt ?? DateTime.now();
+
+  factory ChatThread.from(List<ChatMessage> messages, {String? lessonId}) => ChatThread(
+        id: 'thread-${messages.first.at.microsecondsSinceEpoch}-${lessonId ?? 'course'}',
+        title: titleFor(messages.firstWhere((m) => m.fromUser, orElse: () => messages.first).plainText),
+        lessonId: lessonId,
+        messages: messages,
+        updatedAt: messages.last.at,
+      );
+
+  final String id;
+  String title;
+  String? lessonId;
+  final List<ChatMessage> messages;
+  DateTime updatedAt;
+
+  static String titleFor(String question) {
+    final text = question.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text.length <= 48 ? text : '${text.substring(0, 47)}…';
+  }
+
+  factory ChatThread.fromJson(Map<String, dynamic> j) => ChatThread(
+        id: j['id'] ?? '',
+        title: j['title'] ?? '',
+        lessonId: j['lesson_id'],
+        messages: _maps(j['messages']).map(ChatMessage.fromJson).toList(),
+        updatedAt: DateTime.tryParse(j['updated_at'] ?? ''),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'lesson_id': lessonId,
+        'messages': messages.map((m) => m.toJson()).toList(),
+        'updated_at': updatedAt.toIso8601String(),
       };
 }

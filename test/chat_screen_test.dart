@@ -12,8 +12,9 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
-    final lesson = Lesson(id: 'l1', title: 'Hàm số bậc hai')
-      ..chat.addAll([
+    final lesson = Lesson(id: 'l1', title: 'Hàm số bậc hai');
+    final thread = ChatThread(id: 't1', title: 'Đỉnh parabol', lessonId: 'l1')
+      ..messages.addAll([
         ChatMessage(fromUser: true, text: 'Đỉnh parabol nằm ở đâu?'),
         ChatMessage(fromUser: false, blocks: Block.parseList([
           {
@@ -51,7 +52,7 @@ void main() {
     final state = AppState()
       ..loaded = true
       ..role = UserRole.student
-      ..courses.add(Course(id: 'c1', title: 'Toán 10', goal: 'Ôn thi', createdAt: DateTime(2026, 11, 13), lessons: [lesson]));
+      ..courses.add(Course(id: 'c1', title: 'Toán 10', goal: 'Ôn thi', createdAt: DateTime(2026, 11, 13), lessons: [lesson], threads: [thread]));
 
     final errors = <String>[];
     final previous = FlutterError.onError;

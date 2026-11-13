@@ -16,21 +16,32 @@ class SourceAddBar extends StatelessWidget {
   final ValueChanged<List<SourceDraft>> onAdd;
   final bool enabled;
 
-  Future<void> _pdf() async {
+  /// Chon PDF tu may (dung chung cho nut "+" trong khung chat).
+  static Future<List<SourceDraft>> pickPdfs() async {
     final files = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']);
     final out = <SourceDraft>[];
     for (final f in files) {
       out.add(SourceDraft.file(title: f.name, mimeType: 'application/pdf', bytes: await f.xFile.readAsBytes()));
     }
+    return out;
+  }
+
+  static Future<List<SourceDraft>> pickImage(ImageSource src) async {
+    final x = await ImagePicker().pickImage(source: src, maxWidth: 1800, imageQuality: 75);
+    if (x == null) return [];
+    final lower = x.name.toLowerCase();
+    final mime = lower.endsWith('.png') ? 'image/png' : lower.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+    return [SourceDraft.file(title: x.name, mimeType: mime, bytes: await x.readAsBytes())];
+  }
+
+  Future<void> _pdf() async {
+    final out = await pickPdfs();
     if (out.isNotEmpty) onAdd(out);
   }
 
   Future<void> _image(ImageSource src) async {
-    final x = await ImagePicker().pickImage(source: src, maxWidth: 1800, imageQuality: 75);
-    if (x == null) return;
-    final lower = x.name.toLowerCase();
-    final mime = lower.endsWith('.png') ? 'image/png' : lower.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
-    onAdd([SourceDraft.file(title: x.name, mimeType: mime, bytes: await x.readAsBytes())]);
+    final out = await pickImage(src);
+    if (out.isNotEmpty) onAdd(out);
   }
 
   Future<void> _text(BuildContext context) async {
