@@ -1,0 +1,7 @@
+# Khong bao gio dua key len Vercel qua file; key dat trong Project Settings -> Environment Variables.
+.env
+.env.*
+!.env.example
+dev.js
+*.test.js
+node_modules

@@ -1,0 +1,4 @@
+{
+  "API_BASE_URL": "https://hoc-thong-minh-api.vercel.app",
+  "APP_TOKEN": "<chep tu server/.env>"
+}

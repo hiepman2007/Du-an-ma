@@ -1,0 +1,22 @@
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+android/key.properties
+build/
+.dart_tool/
+.idea/
+*.log
+node_modules/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+*.iml
+.vercel/
+android/.gradle/
+android/local.properties
+android/app/.cxx/
+
+# Cau hinh build app (chua APP_TOKEN)
+app_config.json

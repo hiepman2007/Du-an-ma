@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "flutter-web-preview",
+      "runtimeExecutable": "D:\\dev\\flutter\\bin\\flutter.bat",
+      "runtimeArgs": ["run", "-d", "web-server", "--web-port", "8090", "--dart-define-from-file=app_config.json"],
+      "port": 8090
+    }
+  ]
+}

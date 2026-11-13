@@ -1,0 +1,119 @@
+{
+  "scope": "project",
+  "sources": [
+    {
+      "repository": "https://github.com/flutter/agent-plugins",
+      "commit": "e5a88d2be19cbf7ba1ef974375e5846492aca2ac",
+      "skills": [
+        "dart-add-unit-test",
+        "dart-build-cli-app",
+        "dart-collect-coverage",
+        "dart-fix-runtime-errors",
+        "dart-generate-test-mocks",
+        "dart-migrate-to-checks-package",
+        "dart-resolve-package-conflicts",
+        "dart-run-static-analysis",
+        "dart-setup-ffi-assets",
+        "dart-use-doc-examples",
+        "dart-use-ffigen",
+        "dart-use-path-package",
+        "dart-use-pattern-matching",
+        "dart-use-primary-constructors",
+        "dart-write-documentation",
+        "flutter-add-integration-test",
+        "flutter-add-widget-preview",
+        "flutter-add-widget-test",
+        "flutter-apply-architecture-best-practices",
+        "flutter-build-responsive-layout",
+        "flutter-fix-layout-issues",
+        "flutter-implement-json-serialization",
+        "flutter-setup-declarative-routing",
+        "flutter-setup-localization",
+        "flutter-use-http-package"
+      ]
+    },
+    {
+      "repository": "https://github.com/DietrichGebert/ponytail",
+      "commit": "96608e078b2d5ea607c5c3b8b5a54d1c1fba6846",
+      "skills": [
+        "ponytail",
+        "ponytail-audit",
+        "ponytail-debt",
+        "ponytail-gain",
+        "ponytail-help",
+        "ponytail-review"
+      ]
+    },
+    {
+      "repository": "https://github.com/anthropics/skills",
+      "commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "skills": [
+        "pdf",
+        "docx",
+        "pptx",
+        "xlsx",
+        "doc-coauthoring"
+      ]
+    }
+  ],
+  "skills": [
+    "dart-add-unit-test",
+    "dart-build-cli-app",
+    "dart-collect-coverage",
+    "dart-fix-runtime-errors",
+    "dart-generate-test-mocks",
+    "dart-migrate-to-checks-package",
+    "dart-resolve-package-conflicts",
+    "dart-run-static-analysis",
+    "dart-setup-ffi-assets",
+    "dart-use-doc-examples",
+    "dart-use-ffigen",
+    "dart-use-path-package",
+    "dart-use-pattern-matching",
+    "dart-use-primary-constructors",
+    "dart-write-documentation",
+    "flutter-add-integration-test",
+    "flutter-add-widget-preview",
+    "flutter-add-widget-test",
+    "flutter-apply-architecture-best-practices",
+    "flutter-build-responsive-layout",
+    "flutter-fix-layout-issues",
+    "flutter-implement-json-serialization",
+    "flutter-setup-declarative-routing",
+    "flutter-setup-localization",
+    "flutter-use-http-package",
+    "ponytail",
+    "ponytail-audit",
+    "ponytail-debt",
+    "ponytail-gain",
+    "ponytail-help",
+    "ponytail-review",
+    "pdf",
+    "docx",
+    "pptx",
+    "xlsx",
+    "doc-coauthoring"
+  ],
+  "agency": {
+    "repository": "https://github.com/msitarzewski/agency-agents",
+    "commit": "8ae6164602c95ca78828b148b9052460ee426885",
+    "source": "engineering/engineering-rapid-prototyper.md",
+    "status": "installed",
+    "destination": ".claude/agents/rapid-prototyper.md",
+    "adaptations": [
+      "name normalized to rapid-prototyper",
+      "project Flutter/Dart and CLAUDE.md requirements prioritized"
+    ]
+  },
+  "ponytail": {
+    "installation": "instruction-only skills",
+    "lifecycle_hooks": false,
+    "band_dashboard": false,
+    "activation": "/ponytail in Claude Code; $ponytail in Codex"
+  },
+  "verification": {
+    "skill_copies_checked": 72,
+    "method": "frontmatter and SHA-256 comparison of every installed source file",
+    "runtime_invocation": "not executed"
+  }
+}
