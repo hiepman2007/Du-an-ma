@@ -387,7 +387,8 @@ enum StudyArtifactKind {
   interactiveQuiz('interactive_quiz', 'Quiz tương tác'),
   flashcards('flashcards', 'Thẻ ghi nhớ'),
   note('note', 'Ghi chú'),
-  quiz('quiz', 'Quiz');
+  quiz('quiz', 'Quiz'),
+  canvas('canvas', 'Canvas');
 
   const StudyArtifactKind(this.id, this.label);
   final String id, label;

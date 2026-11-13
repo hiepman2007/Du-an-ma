@@ -9,6 +9,7 @@ import '../widgets/blocks/block_renderer.dart';
 import '../widgets/source_widgets.dart';
 import '../widgets/study_citation.dart';
 import 'roadmap_screen.dart';
+import 'canvas_screen.dart';
 import 'quiz_builder_screen.dart';
 import 'quiz_player_screen.dart';
 import 'study_artifact_screen.dart';
@@ -150,6 +151,7 @@ class _NotebookScreenState extends State<NotebookScreen> {
 
   void _openArtifact(StudyArtifact artifact) => Navigator.push(context, MaterialPageRoute(builder: (_) => artifact.kind.isQuiz
     ? QuizPlayerScreen(courseId: _course.id, artifactId: artifact.id)
+    : artifact.kind == StudyArtifactKind.canvas ? CanvasScreen(courseId: _course.id, artifactId: artifact.id)
     : StudyArtifactScreen(courseId: _course.id, artifactId: artifact.id)));
 
   void _openQuizBuilder({String? lessonId}) => Navigator.push(context, MaterialPageRoute(builder: (_) =>
@@ -336,25 +338,35 @@ class _NotebookScreenState extends State<NotebookScreen> {
         FilterChip(selected: _webOnly, label: const Text('Chỉ dùng nguồn web'),
           onSelected: (value) => setState(() => _webOnly = value)),
       const SizedBox(height: 6),
-      FilledButton.tonalIcon(
-        onPressed: _course.enabledSources.isEmpty ? null : () => _openQuizBuilder(),
-        icon: const Icon(Icons.quiz_outlined),
-        label: const Text('Tạo quiz tùy chọn'),
-      ),
+      Row(children: [
+        Expanded(child: FilledButton.tonalIcon(
+          onPressed: _course.enabledSources.isEmpty ? null : () => _openQuizBuilder(),
+          icon: const Icon(Icons.quiz_outlined),
+          label: const Text('Tạo quiz'),
+        )),
+        const SizedBox(width: 8),
+        Expanded(child: FilledButton.tonalIcon(
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CanvasScreen(courseId: _course.id))),
+          icon: const Icon(Icons.auto_awesome),
+          label: const Text('Canvas'),
+        )),
+      ]),
       const SizedBox(height: 6),
       Wrap(spacing: 6, runSpacing: 6, children: [
-        for (final kind in StudyArtifactKind.values.where((kind) => kind != StudyArtifactKind.note && kind != StudyArtifactKind.quiz))
+        for (final kind in StudyArtifactKind.values.where((kind) => kind != StudyArtifactKind.note && kind != StudyArtifactKind.quiz && kind != StudyArtifactKind.canvas))
           ActionChip(label: Text(kind.label), onPressed: artifactBusy ? null : () => _artifact(kind)),
       ]),
       const SizedBox(height: 12),
       for (final artifact in _course.artifacts.reversed)
         Card(child: ListTile(
-          leading: Icon(artifact.kind.isQuiz ? Icons.quiz_outlined : Icons.description_outlined, color: AppColors.primary),
+          leading: Icon(artifact.kind.isQuiz ? Icons.quiz_outlined : artifact.kind == StudyArtifactKind.canvas ? Icons.auto_awesome
+            : Icons.description_outlined, color: AppColors.primary),
           title: Text(artifact.title),
-          subtitle: Text(artifact.attempts.isEmpty ? '${artifact.kind.label} · v${artifact.version}'
+          subtitle: Text(artifact.kind == StudyArtifactKind.canvas ? 'Canvas · ${artifact.blocks.length} phiên bản'
+            : artifact.attempts.isEmpty ? '${artifact.kind.label} · v${artifact.version}'
             : '${artifact.attempts.length} lượt làm · v${artifact.version}'),
           onTap: () => _openArtifact(artifact),
-          trailing: artifact.kind == StudyArtifactKind.note || _course.isSample ? null : IconButton(
+          trailing: artifact.kind == StudyArtifactKind.note || artifact.kind == StudyArtifactKind.canvas || _course.isSample ? null : IconButton(
             tooltip: 'Tạo phiên bản mới', icon: const Icon(Icons.refresh),
             onPressed: artifact.kind == StudyArtifactKind.quiz ? () => _openQuizBuilder(lessonId: artifact.lessonId)
               : artifactBusy ? null : () => _artifact(artifact.kind, regenerate: true),

@@ -1,9 +1,8 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../models/models.dart';
+import '../canvas_preview.dart';
 import '../rich_content.dart';
 import '../../services/api_client.dart';
 import '../../state/app_state.dart';
@@ -23,27 +22,6 @@ class CustomSimBlock extends StatefulWidget {
 class _CustomSimBlockState extends State<CustomSimBlock> {
   bool _loading = false;
   String? _error;
-  WebViewController? _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.block.sim != null) _load();
-  }
-
-  void _load() {
-    if (kIsWeb) return;
-    final html = '${widget.block.sim?['html'] ?? ''}';
-    _ctrl = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.white)
-      ..setNavigationDelegate(NavigationDelegate(
-        onNavigationRequest: (r) => r.url.startsWith('about:') || r.url.startsWith('data:')
-            ? NavigationDecision.navigate
-            : NavigationDecision.prevent,
-      ))
-      ..loadHtmlString(html);
-  }
 
   Future<void> _generate() async {
     setState(() {
@@ -52,7 +30,6 @@ class _CustomSimBlockState extends State<CustomSimBlock> {
     });
     try {
       await context.read<AppState>().generateSimulation(widget.lesson, widget.block);
-      _load();
     } on ApiException catch (e) {
       _error = e.message;
     }
@@ -78,12 +55,10 @@ class _CustomSimBlockState extends State<CustomSimBlock> {
                 : const Icon(Icons.play_circle_outline),
             label: Text(_loading ? 'AI đang dựng mô phỏng… (20–40 giây)' : 'Tạo mô phỏng'),
           ),
-        ] else if (kIsWeb)
-          const Text('Mô phỏng này chạy trong ứng dụng Android.', style: TextStyle(color: AppColors.muted))
-        else if (_ctrl != null)
+        ] else
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: SizedBox(height: 460, child: WebViewWidget(controller: _ctrl!)),
+            child: SizedBox(height: 460, child: CanvasPreview(html: '${sim['html'] ?? ''}')),
           ),
         const SizedBox(height: 6),
         const Text('Chạy cách ly: không truy cập mạng hay dữ liệu của ứng dụng.', style: TextStyle(fontSize: 11, color: AppColors.muted)),

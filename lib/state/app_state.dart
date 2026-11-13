@@ -432,6 +432,47 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// Canvas: AI viet mot ung dung/mo phong HTML nho tu mo ta. Moi lan sua them mot phien ban (khoi custom_sim).
+  Future<StudyArtifact?> createCanvas(Course course, String prompt, {String? lessonId}) {
+    return _run(course, 'canvas', () async {
+      final lesson = lessonId == null ? null : course.lessons.where((l) => l.id == lessonId).firstOrNull;
+      final request = _clip(prompt.trim(), 600);
+      final out = await api.simulation({'role': _roleId, 'lessonTitle': lesson?.title ?? course.title,
+        'topic': course.subject.isNotEmpty ? course.subject : course.title, 'simPrompt': request});
+      if (!courses.contains(course)) throw ApiException('Sổ học tập đã thay đổi.');
+      final artifact = StudyArtifact(id: _uuid.v4(), kind: StudyArtifactKind.canvas,
+        title: '${out['title'] ?? ''}'.trim().isEmpty ? 'Canvas' : '${out['title']}'.trim(),
+        blocks: [_canvasVersion(out, request)], lessonId: lesson?.id);
+      course.artifacts.add(artifact);
+      notifyListeners();
+      await _save();
+      return artifact;
+    });
+  }
+
+  /// Sua canvas tu phien ban [from] theo [instruction]; them phien ban moi o cuoi.
+  Future<bool?> reviseCanvas(Course course, StudyArtifact artifact, int from, String instruction) {
+    return _run(course, 'canvas', () async {
+      final base = artifact.blocks[from];
+      final lesson = artifact.lessonId == null ? null : course.lessons.where((l) => l.id == artifact.lessonId).firstOrNull;
+      final request = _clip(instruction.trim(), 600);
+      final out = await api.simulation({'role': _roleId, 'lessonTitle': lesson?.title ?? course.title,
+        'topic': course.subject.isNotEmpty ? course.subject : course.title,
+        'simPrompt': request, 'previousHtml': base.sim?['html'] ?? ''});
+      artifact.blocks.add(_canvasVersion(out, request));
+      notifyListeners();
+      await _save();
+      return true;
+    });
+  }
+
+  Block _canvasVersion(Map<String, dynamic> out, String prompt) => Block.tryParse({
+    'type': 'custom_sim', 'title': out['title'], 'sim_prompt': prompt,
+    'sim': {'title': out['title'], 'instructions': out['instructions'] ?? '', 'html': out['html'] ?? ''},
+  })!;
+
+  static String _clip(String text, int max) => text.length <= max ? text : text.substring(0, max);
+
   Future<void> saveChatNote(Course course, ChatMessage message) async {
     final id = 'note-${message.at.microsecondsSinceEpoch}';
     if (course.artifacts.any((artifact) => artifact.id == id)) return;

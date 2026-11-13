@@ -8,6 +8,7 @@ import '../services/api_client.dart';
 import '../widgets/motion.dart';
 import '../widgets/roadmap_map.dart';
 import '../widgets/source_widgets.dart';
+import 'canvas_screen.dart';
 import 'lesson_screen.dart';
 import 'quiz_builder_screen.dart';
 import 'tutor_chat_screen.dart';
@@ -147,6 +148,14 @@ class _StudyRoadmapState extends State<StudyRoadmap> {
         onAsk: () {
           Navigator.pop(sheet);
           _openTutor(course, lesson);
+        },
+        onCanvas: () {
+          Navigator.pop(sheet);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => CanvasScreen(
+            courseId: course.id, lessonId: lesson.id,
+            initialPrompt: 'Mô phỏng tương tác giúp hiểu bài "${lesson.title}"'
+                '${lesson.objectives.isEmpty ? '' : ': ${lesson.objectives.take(3).join('; ')}'}',
+          )));
         },
         onQuiz: course.enabledSources.isEmpty
             ? null
@@ -350,12 +359,14 @@ class _LessonSheet extends StatelessWidget {
     required this.onStudy,
     required this.onAsk,
     required this.onQuiz,
+    required this.onCanvas,
   });
 
   final RoadmapGraph graph;
   final Lesson lesson;
   final VoidCallback onStudy, onAsk;
   final VoidCallback? onQuiz;
+  final VoidCallback onCanvas;
 
   @override
   Widget build(BuildContext context) {
@@ -473,6 +484,15 @@ class _LessonSheet extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onCanvas,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Mô phỏng bài này (Canvas)'),
+              ),
+            ),
             const SizedBox(height: 4),
             SizedBox(
               width: double.infinity,

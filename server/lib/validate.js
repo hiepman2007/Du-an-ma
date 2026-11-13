@@ -104,3 +104,15 @@ export function sanitizeSimulationHtml(html) {
   const body = html.replace(/<!doctype[^>]*>/i, '').replace(/<\/?html[^>]*>/gi, '').replace(/<head>|<\/head>/gi, '');
   return `<!doctype html><html><head><meta charset="utf-8">${csp}${viewport}</head>${body.includes('<body') ? body : `<body>${body}</body>`}</html>`;
 }
+
+/** Bo phan boc CSP/viewport ma server da them, de gui lai cho AI sua tiep (canvas). */
+export function unwrapSimulationHtml(html) {
+  if (typeof html !== 'string') return '';
+  return html
+    .replace(/<meta[^>]+(Content-Security-Policy|name="viewport"|charset=)[^>]*>/gi, '')
+    .replace(/<!doctype[^>]*>/i, '')
+    .replace(/<\/?html[^>]*>/gi, '')
+    .replace(/<\/?head>/gi, '')
+    .trim()
+    .slice(0, 30000);
+}
