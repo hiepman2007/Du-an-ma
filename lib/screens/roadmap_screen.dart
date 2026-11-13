@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../services/api_client.dart';
+import '../widgets/lesson_image.dart';
 import '../widgets/motion.dart';
 import '../widgets/roadmap_map.dart';
 import '../widgets/source_widgets.dart';
@@ -115,58 +116,9 @@ class _StudyRoadmapState extends State<StudyRoadmap> {
     }
   }
 
-  void _openLesson(Course course, Lesson lesson) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => LessonScreen(courseId: course.id, lessonId: lesson.id),
-      ),
-    );
-  }
+  void _openLesson(Course course, Lesson lesson) => openLesson(context, course, lesson);
 
-  void _openTutor(Course course, Lesson lesson) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TutorChatScreen(courseId: course.id, lessonId: lesson.id),
-      ),
-    );
-  }
-
-  Future<void> _showLesson(Course course, RoadmapGraph graph, Lesson lesson) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheet) => _LessonSheet(
-        graph: graph,
-        lesson: lesson,
-        onStudy: () {
-          Navigator.pop(sheet);
-          _openLesson(course, lesson);
-        },
-        onAsk: () {
-          Navigator.pop(sheet);
-          _openTutor(course, lesson);
-        },
-        onCanvas: () {
-          Navigator.pop(sheet);
-          Navigator.push(context, MaterialPageRoute(builder: (_) => CanvasScreen(
-            courseId: course.id, lessonId: lesson.id,
-            initialPrompt: 'Mô phỏng tương tác giúp hiểu bài "${lesson.title}"'
-                '${lesson.objectives.isEmpty ? '' : ': ${lesson.objectives.take(3).join('; ')}'}',
-          )));
-        },
-        onQuiz: course.enabledSources.isEmpty
-            ? null
-            : () {
-                Navigator.pop(sheet);
-                Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => QuizBuilderScreen(courseId: course.id, lessonId: lesson.id)));
-              },
-      ),
-    );
-  }
+  Future<void> _showLesson(Course course, RoadmapGraph graph, Lesson lesson) => showLessonDetails(context, course, lesson);
 
   @override
   Widget build(BuildContext context) {
@@ -351,9 +303,48 @@ class _StudyRoadmapState extends State<StudyRoadmap> {
   }
 }
 
-/// Bảng chi tiết khi bấm vào một bài trên sơ đồ.
+void openLesson(BuildContext context, Course course, Lesson lesson) => Navigator.push(
+    context, MaterialPageRoute(builder: (_) => LessonScreen(courseId: course.id, lessonId: lesson.id)));
+
+/// Bảng chi tiết một bài: mục tiêu, bài cần học trước, mức nắm vững, các cách học bài đó.
+Future<void> showLessonDetails(BuildContext context, Course course, Lesson lesson) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (sheet) => _LessonSheet(
+      course: course,
+      graph: RoadmapGraph(course.lessons),
+      lesson: lesson,
+      onStudy: () {
+        Navigator.pop(sheet);
+        openLesson(context, course, lesson);
+      },
+      onAsk: () {
+        Navigator.pop(sheet);
+        Navigator.push(context, MaterialPageRoute(builder: (_) => TutorChatScreen(courseId: course.id, lessonId: lesson.id)));
+      },
+      onCanvas: () {
+        Navigator.pop(sheet);
+        Navigator.push(context, MaterialPageRoute(builder: (_) => CanvasScreen(
+          courseId: course.id, lessonId: lesson.id,
+          initialPrompt: 'Mô phỏng tương tác giúp hiểu bài "${lesson.title}"'
+              '${lesson.objectives.isEmpty ? '' : ': ${lesson.objectives.take(3).join('; ')}'}',
+        )));
+      },
+      onQuiz: course.enabledSources.isEmpty
+          ? null
+          : () {
+              Navigator.pop(sheet);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => QuizBuilderScreen(courseId: course.id, lessonId: lesson.id)));
+            },
+    ),
+  );
+}
+
 class _LessonSheet extends StatelessWidget {
   const _LessonSheet({
+    required this.course,
     required this.graph,
     required this.lesson,
     required this.onStudy,
@@ -362,6 +353,7 @@ class _LessonSheet extends StatelessWidget {
     required this.onCanvas,
   });
 
+  final Course course;
   final RoadmapGraph graph;
   final Lesson lesson;
   final VoidCallback onStudy, onAsk;
@@ -387,6 +379,8 @@ class _LessonSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            LessonImage(course: course, lesson: lesson, aspect: 16 / 7, radius: 14),
+            const SizedBox(height: 12),
             Row(children: [
               Icon(status.icon, size: 18, color: status.color),
               const SizedBox(width: 6),

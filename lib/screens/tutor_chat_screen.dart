@@ -42,9 +42,13 @@ class TutorChat extends StatefulWidget {
     this.onIntercept,
     this.emptyActions = const [],
     this.onSaveNote,
+    this.onClose,
   });
 
   final String courseId;
+
+  /// Khung tro ly noi (bottom sheet): hien nut dong.
+  final VoidCallback? onClose;
 
   /// Ngu canh ban dau: null = ca khoa hoc.
   final String? lessonId;
@@ -384,6 +388,7 @@ class _TutorChatState extends State<TutorChat> {
             icon: const Icon(Icons.edit_square),
             onPressed: msgs.isEmpty ? null : () => _newChat(course, lessonId: _thread.lessonId),
           ),
+          if (widget.onClose != null) IconButton(tooltip: 'Đóng trợ lý', icon: const Icon(Icons.close), onPressed: widget.onClose),
         ],
       ),
       body: Column(children: [

@@ -266,7 +266,7 @@ class Lesson {
   Lesson({required this.id, required this.title, this.objectives = const [], this.minutes = 15, this.interactionHint = '', this.blocks,
     Map<int, bool>? results, List<ChatMessage>? chat, this.phase = '', this.prerequisites = const [], this.sourceIds = const [],
     this.stepIndex = 0, this.completed = false, this.lastStudiedAt, this.scheduledAt, this.previousResults = const [],
-    this.quizCorrect = 0, this.quizTotal = 0})
+    this.quizCorrect = 0, this.quizTotal = 0, this.imageUrl})
       : results = results ?? {},
         chat = chat ?? [];
   final String id;
@@ -282,6 +282,18 @@ class Lesson {
 
   /// Diem lan lam quiz gan nhat cua bai (tinh vao muc nam vung).
   int quizCorrect, quizTotal;
+
+  /// Anh xem truoc cua bai tren lo trinh (tu khoi image_card hoac Wikipedia).
+  String? imageUrl;
+
+  /// Anh co san trong noi dung bai (khoi image_card), neu co.
+  String? get blockImage {
+    for (final b in blocks ?? const <Block>[]) {
+      final url = b.rawMap('image')?['url'];
+      if (b.type == BlockType.imageCard && url is String && url.startsWith('https://')) return url;
+    }
+    return null;
+  }
 
   /// Goi y kieu tuong tac AI de xuat khi len lo trinh.
   final String interactionHint;
@@ -321,6 +333,7 @@ class Lesson {
         previousResults: _maps(j['previous_results']),
         quizCorrect: j['quiz_correct'] is int ? j['quiz_correct'] : 0,
         quizTotal: j['quiz_total'] is int ? j['quiz_total'] : 0,
+        imageUrl: j['image_url'] is String ? j['image_url'] : null,
       );
     lesson.completed = j['completed'] as bool? ??
         (lesson.gradedCount > 0 && lesson.results.length >= lesson.gradedCount);
@@ -345,6 +358,7 @@ class Lesson {
         'previous_results': previousResults,
         'quiz_correct': quizCorrect,
         'quiz_total': quizTotal,
+        if (imageUrl != null) 'image_url': imageUrl,
       };
 
   /// Dang gui len server (khong kem noi dung khoi).
@@ -601,6 +615,7 @@ class Course {
     this.isSample = false,
     List<ChatThread>? threads,
     List<StudyArtifact>? artifacts,
+    this.bestMatchMs,
   }) : sources = sources ?? [], threads = threads ?? [], artifacts = artifacts ?? [];
 
   final String id;
@@ -625,6 +640,9 @@ class Course {
   /// Cac cuoc tro chuyen voi gia su (ca khoa hoac mot bai), moi nhat o cuoi.
   final List<ChatThread> threads;
   final List<StudyArtifact> artifacts;
+
+  /// Ky luc tro choi Ghep nhanh (mili giay), null = chua choi.
+  int? bestMatchMs;
 
   Lesson? lessonById(String? id) => id == null ? null : lessons.where((l) => l.id == id).firstOrNull;
 
@@ -690,6 +708,7 @@ class Course {
         isSample: j['is_sample'] == true || j['id'] == 'sample-ohm',
         threads: _maps(j['threads']).map(ChatThread.fromJson).toList(),
         artifacts: _maps(j['artifacts']).map(StudyArtifact.fromJson).toList(),
+        bestMatchMs: j['best_match_ms'] is int ? j['best_match_ms'] : null,
       );
 
   /// Doc nguon; ho tro du lieu ban cu (fileId/fileName/text/sources web rieng le).
@@ -722,6 +741,7 @@ class Course {
         'missing_categories': missingCategories,
         'is_sample': isSample,
         'threads': threads.map((t) => t.toJson()).toList(),
+        if (bestMatchMs != null) 'best_match_ms': bestMatchMs,
         'artifacts': artifacts.map((a) => a.toJson()).toList(),
       };
 

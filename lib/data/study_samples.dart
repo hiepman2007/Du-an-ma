@@ -79,5 +79,46 @@ Course buildStudySample(String id) {
       StudyArtifact(id: '$id-summary', kind: StudyArtifactKind.summary, title: 'Tóm tắt · $topic', blocks: [reading], sourceIds: [evidence.id]),
       StudyArtifact(id: '$id-quick', kind: StudyArtifactKind.quickQuiz, title: 'Quiz nhanh · $topic', blocks: [quickBlock], sourceIds: [evidence.id]),
       StudyArtifact(id: '$id-interactive', kind: StudyArtifactKind.interactiveQuiz, title: 'Quiz tương tác · $topic', blocks: [interactiveBlock], sourceIds: [evidence.id]),
+      StudyArtifact(id: '$id-cards', kind: StudyArtifactKind.flashcards, title: 'Thẻ ghi nhớ · $title', sourceIds: [evidence.id], blocks: [
+        cited({'type': 'flashcards', 'title': 'Thuật ngữ chính', 'cards': [
+          for (final (front, back) in _sampleCards[id]!) {'front': front, 'back': back},
+        ]}),
+      ]),
     ]);
 }
+
+/// The ghi nho soan tay cho so mau (dung cho trang The ghi nho va tro choi Ghep nhanh).
+const _sampleCards = {
+  'sample-dsa': [
+    ('Tìm kiếm nhị phân', 'Chia đôi mảng đã sắp xếp mỗi bước, O(log n)'),
+    ('BFS', 'Duyệt theo lớp, dùng hàng đợi'),
+    ('DFS', 'Đi sâu theo nhánh, dùng ngăn xếp hoặc đệ quy'),
+    ('Hàng đợi', 'Vào trước ra trước (FIFO)'),
+    ('Ngăn xếp', 'Vào sau ra trước (LIFO)'),
+    ('Độ phức tạp O(n)', 'Thời gian tăng tuyến tính theo kích thước dữ liệu'),
+  ],
+  'sample-math': [
+    ('Đỉnh parabol', 'x = -b / 2a'),
+    ('Biệt thức Δ', 'b² - 4ac'),
+    ('Δ < 0', 'Phương trình vô nghiệm thực'),
+    ('a > 0', 'Parabol quay bề lõm lên trên'),
+    ('Trục đối xứng', 'Đường thẳng đi qua đỉnh, song song trục tung'),
+    ('Định lý Vi-ét', 'x₁ + x₂ = -b/a, x₁·x₂ = c/a'),
+  ],
+  'sample-ohm': [
+    ('Định luật Ohm', 'I = U / R'),
+    ('Cường độ dòng điện', 'Đo bằng ampe (A)'),
+    ('Hiệu điện thế', 'Đo bằng vôn (V)'),
+    ('Điện trở', 'Đo bằng ôm (Ω)'),
+    ('Mắc nối tiếp', 'R = R₁ + R₂'),
+    ('Công suất điện', 'P = U · I'),
+  ],
+  'sample-chem': [
+    ('Mol', 'Lượng chất chứa 6,022·10²³ hạt'),
+    ('Khối lượng mol', 'Khối lượng của 1 mol chất (g/mol)'),
+    ('Số mol', 'n = m / M'),
+    ('Số Avogadro', '6,022·10²³'),
+    ('M của H₂O', '18 g/mol'),
+    ('Thể tích mol khí (đktc)', '22,4 lít'),
+  ],
+};

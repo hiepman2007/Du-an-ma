@@ -10,15 +10,30 @@ import '../models/models.dart';
 import '../services/api_client.dart';
 import '../services/storage.dart';
 import '../services/study_account.dart';
+import '../services/topic_images.dart';
 
 class AppState extends ChangeNotifier {
-  AppState({ApiClient? api, Storage? storage, this.account})
+  AppState({ApiClient? api, Storage? storage, this.account, TopicImages? images})
       : api = api ?? ApiClient(token: () => account?.accessToken),
+        images = images ?? TopicImages(),
         _guestStorage = storage ?? Storage(),
         _storage = storage ?? Storage();
 
   final ApiClient api;
+  final TopicImages images;
   final StudyAccount? account;
+
+  /// Anh xem truoc cua bai: anh da luu, anh trong noi dung bai, hoac tim tren Wikipedia theo ten bai.
+  Future<String?> lessonImage(Course course, Lesson lesson) async {
+    final known = lesson.imageUrl ?? lesson.blockImage;
+    if (known != null) return known;
+    final found = await images.lookup(lesson.title, subject: course.subject);
+    if (found != null && lesson.imageUrl == null) {
+      lesson.imageUrl = found;
+      await _save();
+    }
+    return found;
+  }
   final Storage _guestStorage;
   Storage _storage;
   final _uuid = const Uuid();
@@ -746,6 +761,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     await _save();
     return text;
+  }
+
+  /// Ghi ket qua tro choi Ghep nhanh. Tra ve true neu la ky luc moi.
+  Future<bool> recordMatchTime(Course course, int ms) async {
+    final best = course.bestMatchMs;
+    if (best != null && best <= ms) return false;
+    course.bestMatchMs = ms;
+    notifyListeners();
+    await _save();
+    return true;
   }
 
   Future<void> deleteThread(Course course, ChatThread thread) async {

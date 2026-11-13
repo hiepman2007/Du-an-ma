@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -12,10 +15,13 @@ import 'tutor_chat_screen.dart';
 /// Lam quiz: mot cau moi man, tra loi xong hien giai thich ngay, cuoi bai co diem theo chu de.
 /// [only] = chi lam lai cac cau nay (luot luyen lai cau sai, khong ghi vao lich su diem).
 class QuizPlayerScreen extends StatefulWidget {
-  const QuizPlayerScreen({super.key, required this.courseId, required this.artifactId, this.only});
+  const QuizPlayerScreen({super.key, required this.courseId, required this.artifactId, this.only, this.exam = false});
 
   final String courseId, artifactId;
   final List<int>? only;
+
+  /// Thi thu: dem nguoc (1,5 phut moi cau, toi thieu 3 phut), het gio tu nop bai.
+  final bool exam;
 
   @override
   State<QuizPlayerScreen> createState() => _QuizPlayerScreenState();
@@ -26,6 +32,38 @@ class _QuizPlayerScreenState extends State<QuizPlayerScreen> {
   String _attemptId = const Uuid().v4();
   int _index = 0;
   bool _finished = false;
+  DateTime? _deadline;
+  Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startClock(int questions) {
+    if (!widget.exam || _deadline != null) return;
+    _deadline = DateTime.now().add(Duration(seconds: max(180, questions * 90)));
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _finished) return;
+      if (DateTime.now().isAfter(_deadline!)) {
+        final state = context.read<AppState>();
+        final course = state.courseById(widget.courseId);
+        final artifact = course?.artifacts.where((a) => a.id == widget.artifactId).firstOrNull;
+        if (course != null && artifact != null) {
+          _finish(state, course, artifact, [for (var i = 0; i < artifact.blocks.length; i++) if (artifact.blocks[i].isGraded) i]);
+        }
+      } else {
+        setState(() {});
+      }
+    });
+  }
+
+  String get _remaining {
+    final left = _deadline == null ? Duration.zero : _deadline!.difference(DateTime.now());
+    final s = left.isNegative ? 0 : left.inSeconds;
+    return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+  }
 
   /// Doan tinh huong ap dung cho cau [i]: khoi text_section gan nhat dung truoc cau do.
   int? _passageFor(List<Block> blocks, int i) {
@@ -36,6 +74,7 @@ class _QuizPlayerScreenState extends State<QuizPlayerScreen> {
   }
 
   Future<void> _finish(AppState state, Course course, StudyArtifact artifact, List<int> questions) async {
+    _timer?.cancel();
     setState(() => _finished = true);
     if (widget.only != null) return;
     try {
@@ -49,6 +88,7 @@ class _QuizPlayerScreenState extends State<QuizPlayerScreen> {
   }
 
   void _restart() => setState(() {
+        _deadline = null;
         _answers.clear();
         _attemptId = const Uuid().v4();
         _index = 0;
@@ -79,8 +119,18 @@ class _QuizPlayerScreenState extends State<QuizPlayerScreen> {
         if (blocks[i].isGraded && (widget.only?.contains(i) ?? true)) i,
     ];
     final lesson = artifact.lessonId == null ? null : course.lessons.where((l) => l.id == artifact.lessonId).firstOrNull;
+    if (widget.exam && !_finished && questions.isNotEmpty) _startClock(questions.length);
     return Scaffold(
-      appBar: AppBar(title: Text(widget.only == null ? artifact.title : 'Làm lại câu sai')),
+      appBar: AppBar(
+        title: Text(widget.only != null ? 'Làm lại câu sai' : widget.exam ? 'Thi thử · ${artifact.title}' : artifact.title),
+        actions: [
+          if (widget.exam && !_finished && _deadline != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Chip(avatar: const Icon(Icons.timer_outlined, size: 18), label: Text(_remaining)),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
