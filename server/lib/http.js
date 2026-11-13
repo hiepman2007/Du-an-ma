@@ -3,13 +3,11 @@ import { assertStudyNotebookAccess, authenticateStudyAccount, resolveStudyFiles,
 
 const hits = new Map();
 
-function guardLocalDemo(req) {
+// Khi chua bat tai khoan (SUPABASE_URL/STUDY_REQUIRE_AUTH): kiem tra APP_TOKEN chung + gioi han toc do,
+// ca tren Vercel (ban demo hackathon) lan may cuc bo. Bat tai khoan thi chuyen sang xac thuc tung nguoi dung.
+function guardAppToken(req) {
   const expected = process.env.APP_TOKEN;
-  const remote = req.socket?.remoteAddress;
-  const loopback = remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1';
-  if (process.env.VERCEL || process.env.NODE_ENV === 'production' || !loopback || !expected) {
-    throw fail(503, 'Máy chủ chưa cấu hình dịch vụ tài khoản.');
-  }
+  if (!expected) throw fail(503, 'Máy chủ chưa cấu hình APP_TOKEN hoặc dịch vụ tài khoản.');
   const supplied = req.headers['x-app-token'];
   const token = typeof supplied === 'string' ? Buffer.from(supplied) : Buffer.alloc(0);
   const expectedBytes = Buffer.from(expected);
@@ -68,7 +66,7 @@ export function wrap(handler, { method = 'POST' } = {}) {
           await handler(req, res);
         });
       } else {
-        guardLocalDemo(req);
+        guardAppToken(req);
         requireAdultProviderUse(req);
         await handler(req, res);
       }
