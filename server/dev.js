@@ -13,13 +13,13 @@ const routes = {
   'POST /api/simulation': () => import('./api/simulation.js'),
   'POST /api/ask': () => import('./api/ask.js'),
   'POST /api/exercises': () => import('./api/exercises.js'),
-  'POST /api/study/research': () => import('./api/study/research.js'),
-  'POST /api/study/source': () => import('./api/study/source.js'),
-  'POST /api/study/outline': () => import('./api/study/outline.js'),
-  'POST /api/study/lesson': () => import('./api/study/lesson.js'),
-  'POST /api/study/ask': () => import('./api/study/ask.js'),
-  'POST /api/study/artifact': () => import('./api/study/artifact.js'),
-  'POST /api/study/quiz': () => import('./api/study/quiz.js'),
+  'POST /api/study/research': () => import('./api/study/[action].js'),
+  'POST /api/study/source': () => import('./api/study/[action].js'),
+  'POST /api/study/outline': () => import('./api/study/[action].js'),
+  'POST /api/study/lesson': () => import('./api/study/[action].js'),
+  'POST /api/study/ask': () => import('./api/study/[action].js'),
+  'POST /api/study/artifact': () => import('./api/study/[action].js'),
+  'POST /api/study/quiz': () => import('./api/study/[action].js'),
 };
 
 http.createServer(async (req, res) => {

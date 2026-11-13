@@ -1,6 +1,6 @@
-import { wrap } from '../../lib/http.js';
-import { consumeStudyQuota } from '../../lib/account.js';
-import { findStudySources } from '../../lib/research.js';
+import { wrap } from '../../http.js';
+import { consumeStudyQuota } from '../../account.js';
+import { findStudySources } from '../../research.js';
 
 export default wrap(async (req, res) => {
   const result = await findStudySources(req.body, {

@@ -1,5 +1,5 @@
-import { wrap } from '../../lib/http.js';
-import { createStudyLesson } from '../../lib/study.js';
+import { wrap } from '../../http.js';
+import { createStudyLesson } from '../../study.js';
 
 export default wrap(async (req, res) => {
   res.status(200).json(await createStudyLesson(req.body));

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { quizPlan } from './lib/study.js';
-import quizHandler from './api/study/quiz.js';
+import quizHandler from './lib/routes/study/quiz.js';
 
 test('quiz plan caps at 15 questions, a passage counts as 3, unknown options fall back', () => {
   const plan = quizPlan({ counts: { mcq: 10, passage: 3, true_false: 'x' }, difficulty: 'impossible' });

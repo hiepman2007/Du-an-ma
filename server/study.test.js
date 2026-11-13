@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { studyMaterial, validateDsaSimulation, validateStudyBlocks, validateStudyOutline } from './lib/study.js';
-import researchHandler from './api/study/research.js';
-import sourceHandler from './api/study/source.js';
-import outlineHandler from './api/study/outline.js';
-import lessonHandler from './api/study/lesson.js';
-import artifactHandler from './api/study/artifact.js';
-import askHandler from './api/study/ask.js';
+import researchHandler from './lib/routes/study/research.js';
+import sourceHandler from './lib/routes/study/source.js';
+import outlineHandler from './lib/routes/study/outline.js';
+import lessonHandler from './lib/routes/study/lesson.js';
+import artifactHandler from './lib/routes/study/artifact.js';
+import askHandler from './lib/routes/study/ask.js';
 
 test('grounding accepts readable evidence, matches exact quotes, and clears unrelated citations', () => {
   const { evidence, parts } = studyMaterial({
