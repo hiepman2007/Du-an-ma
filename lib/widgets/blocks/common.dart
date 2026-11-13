@@ -114,6 +114,7 @@ class _AnswerFeedbackState extends State<AnswerFeedback> {
   Widget build(BuildContext context) {
     final correct = widget.correct;
     final color = correct ? AppColors.success : AppColors.danger;
+    final hasExplanation = (widget.explanation ?? '').trim().isNotEmpty;
     final box = Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 12),
@@ -128,11 +129,11 @@ class _AnswerFeedbackState extends State<AnswerFeedback> {
           Icon(correct ? Icons.check_circle : Icons.cancel, color: color),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(correct ? 'Chính xác! Giỏi lắm 🎉' : 'Chưa đúng — thử nghĩ lại nhé',
+            child: Text(correct ? 'Chính xác! Giỏi lắm 🎉' : hasExplanation ? 'Chưa đúng — xem vì sao nhé' : 'Chưa đúng — thử nghĩ lại nhé',
                 style: TextStyle(color: color, fontWeight: FontWeight.w800)),
           ),
         ]),
-        if (correct && widget.explanation != null && widget.explanation!.isNotEmpty)
+        if (hasExplanation)
           Padding(padding: const EdgeInsets.only(top: 6), child: RichContent(widget.explanation!)),
         if (!correct && widget.onTutor != null)
           Padding(

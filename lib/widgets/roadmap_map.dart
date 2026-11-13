@@ -30,9 +30,12 @@ extension LessonStatusView on LessonStatus {
       };
 }
 
-/// Tỉ lệ trả lời đúng lần đầu trong bài; null khi chưa đủ 2 câu để đánh giá.
-double? lessonMastery(Lesson lesson) =>
-    lesson.results.length < 2 ? null : lesson.correctCount / lesson.results.length;
+/// Tỉ lệ đúng gộp từ câu kiểm tra trong bài (lần đầu) và lần làm quiz gần nhất của bài;
+/// null khi chưa đủ 2 câu để đánh giá.
+double? lessonMastery(Lesson lesson) {
+  final answered = lesson.results.length + lesson.quizTotal;
+  return answered < 2 ? null : (lesson.correctCount + lesson.quizCorrect) / answered;
+}
 
 bool needsReview(Lesson lesson) => (lessonMastery(lesson) ?? 1) < 0.6;
 

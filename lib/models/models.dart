@@ -265,7 +265,8 @@ class Block {
 class Lesson {
   Lesson({required this.id, required this.title, this.objectives = const [], this.minutes = 15, this.interactionHint = '', this.blocks,
     Map<int, bool>? results, List<ChatMessage>? chat, this.phase = '', this.prerequisites = const [], this.sourceIds = const [],
-    this.stepIndex = 0, this.completed = false, this.lastStudiedAt, this.scheduledAt, this.previousResults = const []})
+    this.stepIndex = 0, this.completed = false, this.lastStudiedAt, this.scheduledAt, this.previousResults = const [],
+    this.quizCorrect = 0, this.quizTotal = 0})
       : results = results ?? {},
         chat = chat ?? [];
   final String id;
@@ -278,6 +279,9 @@ class Lesson {
   bool completed;
   DateTime? lastStudiedAt, scheduledAt;
   List<Map<String, dynamic>> previousResults;
+
+  /// Diem lan lam quiz gan nhat cua bai (tinh vao muc nam vung).
+  int quizCorrect, quizTotal;
 
   /// Goi y kieu tuong tac AI de xuat khi len lo trinh.
   final String interactionHint;
@@ -315,6 +319,8 @@ class Lesson {
         lastStudiedAt: DateTime.tryParse(j['last_studied_at'] ?? ''),
         scheduledAt: DateTime.tryParse(j['scheduled_at'] ?? ''),
         previousResults: _maps(j['previous_results']),
+        quizCorrect: j['quiz_correct'] is int ? j['quiz_correct'] : 0,
+        quizTotal: j['quiz_total'] is int ? j['quiz_total'] : 0,
       );
     lesson.completed = j['completed'] as bool? ??
         (lesson.gradedCount > 0 && lesson.results.length >= lesson.gradedCount);
@@ -337,6 +343,8 @@ class Lesson {
         'last_studied_at': lastStudiedAt?.toIso8601String(),
         'scheduled_at': scheduledAt?.toIso8601String(),
         'previous_results': previousResults,
+        'quiz_correct': quizCorrect,
+        'quiz_total': quizTotal,
       };
 
   /// Dang gui len server (khong kem noi dung khoi).
@@ -378,12 +386,40 @@ enum StudyArtifactKind {
   quickQuiz('quick_quiz', 'Quiz nhanh'),
   interactiveQuiz('interactive_quiz', 'Quiz tương tác'),
   flashcards('flashcards', 'Thẻ ghi nhớ'),
-  note('note', 'Ghi chú');
+  note('note', 'Ghi chú'),
+  quiz('quiz', 'Quiz');
 
   const StudyArtifactKind(this.id, this.label);
   final String id, label;
 
-  bool get isQuiz => this == quickQuiz || this == interactiveQuiz;
+  bool get isQuiz => this == quickQuiz || this == interactiveQuiz || this == quiz;
+}
+
+/// Cau hinh mot bai quiz: so cau theo loai, do kho, kieu giai thich, chu de trong tam.
+class QuizSpec {
+  const QuizSpec({required this.counts, this.difficulty = 'medium', this.explain = 'brief', this.focus = '', this.lessonId});
+
+  static const types = ['mcq', 'true_false', 'fill_blank', 'matching', 'ordering', 'passage'];
+  static const maxQuestions = 15;
+
+  /// So cau theo loai; 'passage' la doan van 3 tang, moi doan tinh 3 cau.
+  final Map<String, int> counts;
+  final String difficulty, explain, focus;
+  final String? lessonId;
+
+  int get total => counts.entries.fold(0, (sum, e) => sum + e.value * (e.key == 'passage' ? 3 : 1));
+
+  QuizSpec copyWith({Map<String, int>? counts, String? difficulty, String? explain, String? focus, String? lessonId, bool clearLesson = false}) =>
+      QuizSpec(counts: counts ?? this.counts, difficulty: difficulty ?? this.difficulty, explain: explain ?? this.explain,
+          focus: focus ?? this.focus, lessonId: clearLesson ? null : lessonId ?? this.lessonId);
+
+  factory QuizSpec.fromJson(Map<String, dynamic> json) => QuizSpec(
+    counts: {for (final e in (json['counts'] as Map? ?? {}).entries) if (e.value is int) '${e.key}': e.value as int},
+    difficulty: json['difficulty'] ?? 'medium', explain: json['explain'] ?? 'brief', focus: json['focus'] ?? '',
+    lessonId: json['lesson_id'] as String?,
+  );
+  Map<String, dynamic> toJson() => {'counts': counts, 'difficulty': difficulty, 'explain': explain, 'focus': focus,
+    if (lessonId != null) 'lesson_id': lessonId};
 }
 
 class QuizAttempt {
@@ -407,7 +443,7 @@ class QuizAttempt {
 class StudyArtifact {
   StudyArtifact({required this.id, required this.kind, required this.title, required this.blocks,
     this.sourceIds = const [], this.sourceFingerprint = '', this.webOnly = false,
-    this.version = 1, DateTime? createdAt, List<QuizAttempt>? attempts})
+    this.version = 1, DateTime? createdAt, List<QuizAttempt>? attempts, this.lessonId, this.spec})
       : createdAt = createdAt ?? DateTime.now(), attempts = attempts ?? [];
 
   final String id, title, sourceFingerprint;
@@ -418,6 +454,12 @@ class StudyArtifact {
   final int version;
   final DateTime createdAt;
   final List<QuizAttempt> attempts;
+
+  /// Quiz tao cho mot bai trong lo trinh (null = ca so).
+  final String? lessonId;
+
+  /// Yeu cau da dung de tao quiz, de tao lai cung cau hinh.
+  final QuizSpec? spec;
 
   String questionKey(int index) {
     final key = blocks[index].questionId;
@@ -431,6 +473,8 @@ class StudyArtifact {
     sourceFingerprint: json['source_fingerprint'] ?? '', webOnly: json['web_only'] == true,
     version: json['version'] ?? 1, createdAt: DateTime.tryParse(json['created_at'] ?? ''),
     attempts: _maps(json['attempts']).map(QuizAttempt.fromJson).toList(),
+    lessonId: json['lesson_id'] as String?,
+    spec: json['spec'] is Map ? QuizSpec.fromJson(Map<String, dynamic>.from(json['spec'])) : null,
   );
 
   Map<String, dynamic> toJson() => {
@@ -438,6 +482,8 @@ class StudyArtifact {
     'source_ids': sourceIds, 'source_fingerprint': sourceFingerprint, 'web_only': webOnly,
     'version': version, 'created_at': createdAt.toIso8601String(),
     'attempts': attempts.map((attempt) => attempt.toJson()).toList(),
+    if (lessonId != null) 'lesson_id': lessonId,
+    if (spec != null) 'spec': spec!.toJson(),
   };
 }
 

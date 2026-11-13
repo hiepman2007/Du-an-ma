@@ -9,6 +9,7 @@ import '../widgets/motion.dart';
 import '../widgets/roadmap_map.dart';
 import '../widgets/source_widgets.dart';
 import 'lesson_screen.dart';
+import 'quiz_builder_screen.dart';
 import 'tutor_chat_screen.dart';
 
 class RoadmapScreen extends StatelessWidget {
@@ -147,6 +148,13 @@ class _StudyRoadmapState extends State<StudyRoadmap> {
           Navigator.pop(sheet);
           _openTutor(course, lesson);
         },
+        onQuiz: course.enabledSources.isEmpty
+            ? null
+            : () {
+                Navigator.pop(sheet);
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => QuizBuilderScreen(courseId: course.id, lessonId: lesson.id)));
+              },
       ),
     );
   }
@@ -321,7 +329,7 @@ class _StudyRoadmapState extends State<StudyRoadmap> {
                   leading: const Icon(Icons.replay, color: AppColors.danger),
                   title: Text(lesson.title),
                   subtitle: Text(
-                    'Đúng ${lesson.correctCount}/${lesson.results.length} câu',
+                    'Đúng ${lesson.correctCount + lesson.quizCorrect}/${lesson.results.length + lesson.quizTotal} câu',
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _showLesson(c, graph, lesson),
@@ -341,11 +349,13 @@ class _LessonSheet extends StatelessWidget {
     required this.lesson,
     required this.onStudy,
     required this.onAsk,
+    required this.onQuiz,
   });
 
   final RoadmapGraph graph;
   final Lesson lesson;
   final VoidCallback onStudy, onAsk;
+  final VoidCallback? onQuiz;
 
   @override
   Widget build(BuildContext context) {
@@ -414,7 +424,7 @@ class _LessonSheet extends StatelessWidget {
                 color: needsReview(lesson) ? AppColors.danger : AppColors.success,
               ),
               const SizedBox(height: 4),
-              Text('Đúng ${lesson.correctCount}/${lesson.results.length} câu ngay lần đầu',
+              Text('Đúng ${lesson.correctCount + lesson.quizCorrect}/${lesson.results.length + lesson.quizTotal} câu (bài học và quiz gần nhất)',
                   style: const TextStyle(fontSize: 12, color: AppColors.muted)),
             ],
             if (missing.isNotEmpty) ...[
@@ -452,6 +462,17 @@ class _LessonSheet extends StatelessWidget {
                 label: const Text('Hỏi gia sư về bài này'),
               ),
             ),
+            if (onQuiz != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onQuiz,
+                  icon: const Icon(Icons.quiz_outlined),
+                  label: const Text('Làm quiz bài này'),
+                ),
+              ),
+            ],
             const SizedBox(height: 4),
             SizedBox(
               width: double.infinity,

@@ -228,8 +228,8 @@ function citation(block, evidence) {
   };
 }
 
-export function validateStudyBlocks(blocks, evidence, types) {
-  return list(blocks).slice(0, 14).flatMap((block) => {
+export function validateStudyBlocks(blocks, evidence, types, limit = 14) {
+  return list(blocks).slice(0, limit).flatMap((block) => {
     if (!types.includes(block?.type)) return [];
     const withCitation = { ...block, ...citation(block, evidence) };
     if (block.type === 'dsa_sim') {
@@ -265,6 +265,78 @@ export async function createStudyArtifact(body = {}) {
       throw fail(502, 'Chưa đủ nội dung hợp lệ từ các nguồn đã chọn. Hãy chọn nguồn khác hoặc thử lại.');
     }
     return withSources(cleanText(json.title, 150) || topic, blocks);
+  });
+}
+
+const quizKinds = {
+  mcq: 'trắc nghiệm 4 lựa chọn',
+  true_false: 'đúng/sai',
+  fill_blank: 'điền khuyết',
+  matching: 'ghép cặp (4 cặp)',
+  ordering: 'sắp xếp các bước (4–6 mục)',
+};
+const quizLevels = {
+  easy: 'Dễ: nhớ và hiểu khái niệm cơ bản',
+  medium: 'Vừa: áp dụng khái niệm vào ví dụ cụ thể',
+  hard: 'Khó: phân tích, kết hợp nhiều ý, có phương án nhiễu dựa trên lỗi hiểu sai thường gặp',
+};
+export const MAX_QUIZ_QUESTIONS = 15;
+
+/// Chuẩn hóa yêu cầu tạo quiz: số câu theo loại (đoạn văn 3 tầng tính 3 câu), tối đa 15 câu.
+export function quizPlan(body = {}) {
+  const counts = {};
+  let total = 0;
+  for (const type of [...Object.keys(quizKinds), 'passage']) {
+    const want = Math.max(0, Math.min(10, Math.trunc(Number(body.counts?.[type]) || 0)));
+    const cost = type === 'passage' ? 3 : 1;
+    const n = Math.min(want, Math.floor((MAX_QUIZ_QUESTIONS - total) / cost));
+    if (n > 0) {
+      counts[type] = n;
+      total += n * cost;
+    }
+  }
+  if (!total) throw fail(400, 'Hãy chọn ít nhất một câu hỏi.');
+  return {
+    counts, total,
+    difficulty: Object.hasOwn(quizLevels, body.difficulty) ? body.difficulty : 'medium',
+    detailed: body.explain === 'detailed',
+    focus: cleanText(body.focus, 200),
+  };
+}
+
+export async function createStudyQuiz(body = {}) {
+  const plan = quizPlan(body);
+  const topic = cleanText(body.topic, 180) || 'Toàn bộ nguồn đang chọn';
+  const role = roleFor(body.role);
+  const types = unique([
+    ...(plan.counts.passage ? ['text_section'] : []),
+    ...Object.keys(plan.counts).map((type) => type === 'passage' ? 'mcq' : type),
+  ]);
+  const request = Object.entries(plan.counts).map(([type, n]) => type === 'passage'
+    ? `${n} đoạn tình huống: mỗi đoạn là một khối text_section (3–6 câu mô tả tình huống), theo sau đúng 3 câu mcq dựa trên đoạn đó ở mức Nhận biết, Giải thích cơ chế, Vận dụng (ghi mức vào title của câu)`
+    : `${n} câu ${quizKinds[type]} (type ${type})`).join('; ');
+  const explain = plan.detailed
+    ? 'giải thích chi tiết vì sao đáp án đúng, vì sao các phương án khác sai, kèm một ví dụ'
+    : 'giải thích ngắn gọn 1–2 câu vì sao đáp án đúng';
+  return generateStudy('study-quiz', 'small', body, async ({ evidence }, call) => {
+    requireEvidence(evidence);
+    const { json } = await call(
+      `Chủ đề: ${topic}.${plan.focus ? ` Trọng tâm: ${plan.focus}.` : ''} Soạn bài quiz gồm: ${request}. Độ khó: ${quizLevels[plan.difficulty]}. Mỗi câu có đáp án và trường explanation ${explain}. Điền topic là chủ đề nhỏ của câu (2–5 từ) để thống kê điểm theo chủ đề. Chỉ dùng các nguồn đang chọn; nếu nguồn không đủ cho số câu yêu cầu thì tạo ít câu hơn, không bịa.`,
+      `Bạn soạn đề kiểm tra cho người học. ${roleStyle(role)} ${sourceRules}`,
+      contentSchema(types),
+    );
+    const out = [];
+    let questions = 0;
+    for (const block of validateStudyBlocks(json?.blocks, evidence, types, MAX_QUIZ_QUESTIONS * 2)) {
+      if (block.type !== 'text_section') {
+        if (questions >= plan.total) break;
+        questions++;
+      }
+      out.push(block);
+    }
+    while (out.at(-1)?.type === 'text_section') out.pop();
+    if (!questions) throw fail(502, 'Chưa tạo được câu hỏi hợp lệ từ các nguồn đã chọn. Hãy chọn nguồn khác hoặc thử lại.');
+    return { ...withSources(cleanText(json.title, 150) || `Quiz · ${topic}`, out), questions };
   });
 }
 

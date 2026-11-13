@@ -103,4 +103,5 @@ class ApiClient {
   Future<Map<String, dynamic>> studyLesson(Map<String, dynamic> body) => _send('POST', '/api/study/lesson', body);
   Future<Map<String, dynamic>> studyAsk(Map<String, dynamic> body) => _send('POST', '/api/study/ask', body);
   Future<Map<String, dynamic>> studyArtifact(Map<String, dynamic> body) => _send('POST', '/api/study/artifact', body);
+  Future<Map<String, dynamic>> studyQuiz(Map<String, dynamic> body) => _send('POST', '/api/study/quiz', body);
 }

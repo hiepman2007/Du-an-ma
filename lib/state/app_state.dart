@@ -404,6 +404,34 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// Tao quiz theo cau hinh nguoi hoc chon (so cau theo loai, do kho, bai trong lo trinh).
+  Future<StudyArtifact?> createQuiz(Course course, QuizSpec spec) {
+    return _run(course, 'quiz', () async {
+      final lesson = spec.lessonId == null ? null : course.lessons.where((l) => l.id == spec.lessonId).firstOrNull;
+      final focus = [
+        if (spec.focus.trim().isNotEmpty) spec.focus.trim(),
+        if (lesson != null && lesson.objectives.isNotEmpty) 'Mục tiêu bài: ${lesson.objectives.take(4).join('; ')}',
+      ].join('. ');
+      final out = await api.studyQuiz({'role': _roleId, 'request_id': _uuid.v4(),
+        'topic': lesson?.title ?? course.brief?.topic ?? course.title,
+        'counts': spec.counts, 'difficulty': spec.difficulty, 'explain': spec.explain, 'focus': focus,
+        ...course.materialJson()});
+      if (!courses.contains(course)) throw ApiException('Sổ học tập đã thay đổi.');
+      final blocks = Block.parseList(out['blocks']);
+      if (!blocks.any((b) => b.isGraded)) throw ApiException('Chưa tạo được câu hỏi từ các nguồn đã chọn.');
+      final previous = course.artifacts.where((a) => a.kind == StudyArtifactKind.quiz);
+      final artifact = StudyArtifact(id: _uuid.v4(), kind: StudyArtifactKind.quiz,
+        title: out['title'] ?? 'Quiz · ${lesson?.title ?? course.title}', blocks: blocks,
+        sourceIds: (out['source_ids'] as List? ?? []).whereType<String>().toList(),
+        version: previous.fold(0, (v, a) => a.version > v ? a.version : v) + 1,
+        lessonId: lesson?.id, spec: spec);
+      course.artifacts.add(artifact);
+      notifyListeners();
+      await _save();
+      return artifact;
+    });
+  }
+
   Future<void> saveChatNote(Course course, ChatMessage message) async {
     final id = 'note-${message.at.microsecondsSinceEpoch}';
     if (course.artifacts.any((artifact) => artifact.id == id)) return;
@@ -417,6 +445,11 @@ class AppState extends ChangeNotifier {
     if (!courses.contains(course) || !course.artifacts.contains(artifact)) return;
     if (artifact.attempts.any((a) => a.id == attempt.id)) return;
     artifact.attempts.add(attempt);
+    final lesson = artifact.lessonId == null ? null : course.lessons.where((l) => l.id == artifact.lessonId).firstOrNull;
+    if (lesson != null) {
+      lesson.quizCorrect = attempt.score;
+      lesson.quizTotal = attempt.total;
+    }
     notifyListeners();
     await _save();
   }

@@ -9,6 +9,8 @@ import '../widgets/blocks/block_renderer.dart';
 import '../widgets/source_widgets.dart';
 import '../widgets/study_citation.dart';
 import 'roadmap_screen.dart';
+import 'quiz_builder_screen.dart';
+import 'quiz_player_screen.dart';
 import 'study_artifact_screen.dart';
 import 'study_goal_sheet.dart';
 
@@ -146,8 +148,12 @@ class _NotebookScreenState extends State<NotebookScreen> {
     }, (message) => _studioError = message);
   }
 
-  void _openArtifact(StudyArtifact artifact) => Navigator.push(context, MaterialPageRoute(builder: (_) =>
-    StudyArtifactScreen(courseId: _course.id, artifactId: artifact.id)));
+  void _openArtifact(StudyArtifact artifact) => Navigator.push(context, MaterialPageRoute(builder: (_) => artifact.kind.isQuiz
+    ? QuizPlayerScreen(courseId: _course.id, artifactId: artifact.id)
+    : StudyArtifactScreen(courseId: _course.id, artifactId: artifact.id)));
+
+  void _openQuizBuilder({String? lessonId}) => Navigator.push(context, MaterialPageRoute(builder: (_) =>
+    QuizBuilderScreen(courseId: _course.id, lessonId: lessonId)));
 
   @override
   Widget build(BuildContext context) {
@@ -330,8 +336,14 @@ class _NotebookScreenState extends State<NotebookScreen> {
         FilterChip(selected: _webOnly, label: const Text('Chỉ dùng nguồn web'),
           onSelected: (value) => setState(() => _webOnly = value)),
       const SizedBox(height: 6),
+      FilledButton.tonalIcon(
+        onPressed: _course.enabledSources.isEmpty ? null : () => _openQuizBuilder(),
+        icon: const Icon(Icons.quiz_outlined),
+        label: const Text('Tạo quiz tùy chọn'),
+      ),
+      const SizedBox(height: 6),
       Wrap(spacing: 6, runSpacing: 6, children: [
-        for (final kind in StudyArtifactKind.values.where((kind) => kind != StudyArtifactKind.note))
+        for (final kind in StudyArtifactKind.values.where((kind) => kind != StudyArtifactKind.note && kind != StudyArtifactKind.quiz))
           ActionChip(label: Text(kind.label), onPressed: artifactBusy ? null : () => _artifact(kind)),
       ]),
       const SizedBox(height: 12),
@@ -344,7 +356,8 @@ class _NotebookScreenState extends State<NotebookScreen> {
           onTap: () => _openArtifact(artifact),
           trailing: artifact.kind == StudyArtifactKind.note || _course.isSample ? null : IconButton(
             tooltip: 'Tạo phiên bản mới', icon: const Icon(Icons.refresh),
-            onPressed: artifactBusy ? null : () => _artifact(artifact.kind, regenerate: true),
+            onPressed: artifact.kind == StudyArtifactKind.quiz ? () => _openQuizBuilder(lessonId: artifact.lessonId)
+              : artifactBusy ? null : () => _artifact(artifact.kind, regenerate: true),
           ),
         )),
     ]);
