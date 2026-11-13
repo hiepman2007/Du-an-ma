@@ -6,6 +6,7 @@ import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/blocks/block_renderer.dart';
+import 'tutor_chat_screen.dart';
 import 'tutor_sheet.dart';
 
 /// Bai hoc: chuoi khoi do AI chon (bai giang, bai tap, mo phong...). Sinh lan dau khi mo bai.
@@ -89,6 +90,26 @@ class _LessonScreenState extends State<LessonScreen> {
     if (mounted) setState(() => _exploring = false);
   }
 
+  bool _practicing = false;
+  String _difficulty = 'medium';
+
+  /// Bo de luyen: sinh them 5 cau tu cung tai lieu theo do kho.
+  Future<void> _practice(Course c, Lesson l) async {
+    setState(() => _practicing = true);
+    try {
+      final n = await context.read<AppState>().addExercises(c, l, _difficulty);
+      _snack('Đã thêm $n câu luyện tập ở cuối bài');
+    } on ApiException catch (e) {
+      _snack(e.message);
+    }
+    if (mounted) setState(() => _practicing = false);
+  }
+
+  void _openChat(Course c, Lesson l, [String? question]) => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => TutorChatScreen(courseId: c.id, lessonId: l.id, initialQuestion: question)),
+      );
+
   void _snack(String m) {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
   }
@@ -149,9 +170,22 @@ class _LessonScreenState extends State<LessonScreen> {
             block: blocks[i],
             lesson: l,
             onAnswered: (ok, chosen, correct) => s.recordResult(l, i, ok),
-            onTutor: (chosen, correct) => showTutorSheet(context, blocks[i], chosen, correct),
+            onTutor: (chosen, correct) => showTutorSheet(context, blocks[i], chosen, correct, onAskMore: (q) => _openChat(c, l, q)),
           ),
         if (l.isDone) _ResultCard(lesson: l),
+        const SizedBox(height: 12),
+        _ExercisePanel(
+          busy: _practicing,
+          difficulty: _difficulty,
+          onDifficulty: (d) => setState(() => _difficulty = d),
+          onGenerate: () => _practice(c, l),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => _openChat(c, l),
+          icon: const Icon(Icons.psychology_alt_outlined),
+          label: const Text('Còn thắc mắc? Hỏi gia sư AI'),
+        ),
       ]);
     }
 
@@ -159,6 +193,7 @@ class _LessonScreenState extends State<LessonScreen> {
       appBar: AppBar(
         title: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         actions: [
+          IconButton(tooltip: 'Hỏi gia sư AI', icon: const Icon(Icons.forum_outlined), onPressed: () => _openChat(c, l)),
           if (blocks != null && !_loading)
             IconButton(tooltip: 'Tạo lại bài', icon: const Icon(Icons.refresh), onPressed: _generate),
         ],
@@ -175,6 +210,50 @@ class _LessonScreenState extends State<LessonScreen> {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
             ),
+    );
+  }
+}
+
+/// Bo de luyen: chon do kho roi sinh them 5 cau tu tai lieu.
+class _ExercisePanel extends StatelessWidget {
+  const _ExercisePanel({required this.busy, required this.difficulty, required this.onDifficulty, required this.onGenerate});
+  final bool busy;
+  final String difficulty;
+  final ValueChanged<String> onDifficulty;
+  final VoidCallback onGenerate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Eyebrow('Bộ đề luyện'),
+          const SizedBox(height: 2),
+          const Text('Luyện thêm từ chính tài liệu của bạn', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'easy', label: Text('Dễ')),
+              ButtonSegment(value: 'medium', label: Text('Vừa')),
+              ButtonSegment(value: 'hard', label: Text('Khó')),
+            ],
+            selected: {difficulty},
+            onSelectionChanged: busy ? null : (s) => onDifficulty(s.first),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: busy ? null : onGenerate,
+              icon: busy
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.auto_awesome),
+              label: Text(busy ? 'AI đang soạn đề…' : 'Sinh thêm 5 câu'),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }

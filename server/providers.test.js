@@ -41,3 +41,15 @@ test('chon nha cung cap va model mac dinh', () => {
   assert.equal(modelFor('lesson'), 'gpt-6-luna');
   process.env = saved;
 });
+
+test('model khong khop nha cung cap thi dung mac dinh', () => {
+  const saved = { ...process.env };
+  process.env.AI_PROVIDER = 'gemini';
+  process.env.MODEL_LESSON = 'gpt-6.1-terra';
+  assert.equal(modelFor('lesson'), 'gemini-3.5-flash-lite');
+  process.env.AI_PROVIDER = 'openai';
+  assert.equal(modelFor('lesson'), 'gpt-6.1-terra');
+  process.env.MODEL_LESSON = 'gemini-3.8-flash';
+  assert.equal(modelFor('lesson'), 'gpt-6-luna');
+  process.env = saved;
+});

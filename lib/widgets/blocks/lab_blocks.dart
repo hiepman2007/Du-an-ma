@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/models.dart';
+import '../rich_content.dart';
 import '../../services/expr.dart';
 import '../../theme.dart';
 import 'common.dart';
@@ -53,7 +54,7 @@ class _FormulaLabBlockState extends State<FormulaLabBlock> {
       label: 'Phòng thí nghiệm',
       title: widget.block.title,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (widget.block.body?.isNotEmpty == true) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(widget.block.body!)),
+        if (widget.block.body?.isNotEmpty == true) Padding(padding: const EdgeInsets.only(bottom: 8), child: RichContent(widget.block.body!)),
         for (final v in lab.variables)
           _VarSlider(v: v, value: _vals[v.name]!, onChanged: (x) => setState(() => _vals[v.name] = x)),
         const SizedBox(height: 8),
@@ -67,7 +68,7 @@ class _FormulaLabBlockState extends State<FormulaLabBlock> {
             Text(result == null ? '—' : '${fmtNum(result)} ${lab.resultUnit}',
                 style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: cs.onPrimaryContainer)),
             const SizedBox(height: 4),
-            Text('${lab.resultLabel} = ${prettyExpr(lab.formula)}', style: TextStyle(fontSize: 13, color: cs.onPrimaryContainer)),
+            RichContent('${lab.resultLabel} = \$${exprToTex(lab.formula)}\$', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: cs.onPrimaryContainer)),
           ]),
         ),
         SourceNote(block: widget.block),
@@ -237,11 +238,11 @@ class _FunctionGraphBlockState extends State<FunctionGraphBlock> {
       label: 'Khám phá hàm số',
       title: widget.block.title,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (widget.block.body?.isNotEmpty == true) Text(widget.block.body!),
+        if (widget.block.body?.isNotEmpty == true) RichContent(widget.block.body!),
         const SizedBox(height: 8),
-        Text('y = ${prettyExpr(_g.expression)}', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary)),
+        RichContent('\$y = ${exprToTex(_g.expression)}\$', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.primary)),
         for (var i = 0; i < _extras.length; i++)
-          Text('y = ${prettyExpr(_g.extraExpressions[i])}', style: TextStyle(fontWeight: FontWeight.w600, color: _palette[i % _palette.length])),
+          RichContent('\$y = ${exprToTex(_g.extraExpressions[i])}\$', style: TextStyle(fontSize: 15, color: _palette[i % _palette.length])),
         const SizedBox(height: 8),
         AspectRatio(
           aspectRatio: 1.3,

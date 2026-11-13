@@ -16,7 +16,7 @@ const nullable = (schema) => ({ anyOf: [schema, { type: 'null' }] });
 export const SPECIALIZED_TYPES = ['formula_lab', 'function_graph', 'reaction_lab', 'chem_formula', 'motion_sim'];
 export const GENERIC_TYPES = [
   'text_section', 'mcq', 'true_false', 'fill_blank', 'matching', 'ordering', 'flashcards',
-  'step_solver', 'concept_map', 'image_card',
+  'step_solver', 'concept_map', 'image_card', 'code_demo',
 ];
 export const BLOCK_TYPES = [...GENERIC_TYPES, ...SPECIALIZED_TYPES, 'custom_sim'];
 export const INTERACTIVE_TYPES = [
@@ -84,6 +84,7 @@ const blockSchema = obj({
   motion: nullable(obj({ kind: { type: 'string', enum: MOTION_KINDS }, variables: { type: 'array', items: variable } })),
   image_query: nstr, // image_card: tu khoa tieng Anh de tim anh tren Wikimedia Commons
   sim_prompt: nstr,  // custom_sim: mo ta mo phong can tao (app sinh khi hoc sinh bam)
+  code: nullable(obj({ language: str, source: str, output: str })), // code_demo: code minh hoa + ket qua chay (AI ghi)
   explanation: nstr,
   source_quote: nstr,
   source_page: nint,

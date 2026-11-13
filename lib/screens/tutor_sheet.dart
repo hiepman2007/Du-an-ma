@@ -5,21 +5,24 @@ import '../models/models.dart';
 import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
+import '../widgets/rich_content.dart';
 
 /// Gia su goi mo: goi y truoc (khong lo dap an), bam moi xem giai thich + goc loi.
-Future<void> showTutorSheet(BuildContext context, Block block, String chosen, String correct) {
+/// [onAskMore]: mo khung chat gia su voi cau hoi soan san de hoi tiep.
+Future<void> showTutorSheet(BuildContext context, Block block, String chosen, String correct, {ValueChanged<String>? onAskMore}) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => _TutorSheet(block: block, chosen: chosen, correct: correct),
+    builder: (_) => _TutorSheet(block: block, chosen: chosen, correct: correct, onAskMore: onAskMore),
   );
 }
 
 class _TutorSheet extends StatefulWidget {
-  const _TutorSheet({required this.block, required this.chosen, required this.correct});
+  const _TutorSheet({required this.block, required this.chosen, required this.correct, this.onAskMore});
   final Block block;
   final String chosen, correct;
+  final ValueChanged<String>? onAskMore;
   @override
   State<_TutorSheet> createState() => _TutorSheetState();
 }
@@ -76,6 +79,19 @@ class _TutorSheetState extends State<_TutorSheet> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Chip(avatar: const Icon(Icons.flag_outlined, size: 18), label: Text('Chủ đề cần ôn: ${d['weak_topic']}')),
                 ),
+              if (widget.onAskMore != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      widget.onAskMore!(
+                          'Mình vừa làm sai câu: "${widget.block.body ?? ''}". Mình chọn "${widget.chosen}", đáp án đúng là "${widget.correct}". Giải thích kỹ hơn bằng hình hoặc ví dụ giúp mình.');
+                    },
+                    icon: const Icon(Icons.forum_outlined),
+                    label: const Text('Hỏi tiếp gia sư'),
+                  ),
+                ),
             ],
           ],
         ]),
@@ -91,7 +107,7 @@ class _TutorSheetState extends State<_TutorSheet> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Eyebrow(label, color: AppColors.foreground),
           const SizedBox(height: 4),
-          Text(text, style: const TextStyle(fontSize: 15, height: 1.45)),
+          RichContent(text, style: const TextStyle(fontSize: 15, height: 1.45, color: Color(0xFF262626))),
         ]),
       );
 }

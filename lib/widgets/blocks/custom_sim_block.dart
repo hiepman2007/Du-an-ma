@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../models/models.dart';
+import '../rich_content.dart';
 import '../../services/api_client.dart';
 import '../../state/app_state.dart';
 import '../../theme.dart';
@@ -66,7 +67,7 @@ class _CustomSimBlockState extends State<CustomSimBlock> {
       label: 'Mô phỏng do AI tạo',
       title: sim?['title'] ?? widget.block.title,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(sim?['instructions'] ?? '${widget.block.raw['sim_prompt'] ?? widget.block.body ?? ''}'),
+        RichContent(sim?['instructions'] ?? '${widget.block.raw['sim_prompt'] ?? widget.block.body ?? ''}'),
         const SizedBox(height: 10),
         if (sim == null) ...[
           if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(_error!, style: const TextStyle(color: AppColors.danger))),

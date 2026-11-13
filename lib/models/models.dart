@@ -113,7 +113,7 @@ class Graph {
 
 enum BlockType {
   textSection, mcq, trueFalse, fillBlank, matching, ordering, formulaLab, functionGraph, flashcards,
-  stepSolver, conceptMap, imageCard, reactionLab, chemFormula, motionSim, customSim,
+  stepSolver, conceptMap, imageCard, reactionLab, chemFormula, motionSim, customSim, codeDemo,
 }
 
 const _blockTypeIds = {
@@ -124,6 +124,7 @@ const _blockTypeIds = {
   'chem_formula': BlockType.chemFormula,
   'motion_sim': BlockType.motionSim,
   'custom_sim': BlockType.customSim,
+  'code_demo': BlockType.codeDemo,
   'text_section': BlockType.textSection,
   'mcq': BlockType.mcq,
   'true_false': BlockType.trueFalse,
@@ -248,8 +249,9 @@ class Block {
 }
 
 class Lesson {
-  Lesson({required this.id, required this.title, this.objectives = const [], this.minutes = 15, this.interactionHint = '', this.blocks, Map<int, bool>? results})
-      : results = results ?? {};
+  Lesson({required this.id, required this.title, this.objectives = const [], this.minutes = 15, this.interactionHint = '', this.blocks, Map<int, bool>? results, List<ChatMessage>? chat})
+      : results = results ?? {},
+        chat = chat ?? [];
   final String id;
   String title;
   final List<String> objectives;
@@ -263,6 +265,9 @@ class Lesson {
 
   /// Ket qua theo chi so khoi: true = dung lan dau, false = sai.
   final Map<int, bool> results;
+
+  /// Lich su hoi dap voi gia su AI trong bai nay.
+  final List<ChatMessage> chat;
 
   int get gradedCount => blocks?.where((b) => b.isGraded).length ?? 0;
   int get correctCount => results.values.where((v) => v).length;
@@ -278,6 +283,7 @@ class Lesson {
         results: {
           for (final e in ((j['results'] as Map?) ?? {}).entries) int.parse('${e.key}'): e.value == true,
         },
+        chat: ((j['chat'] as List?) ?? []).whereType<Map>().map((e) => ChatMessage.fromJson(Map<String, dynamic>.from(e))).toList(),
       );
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -287,6 +293,7 @@ class Lesson {
         'interaction_hint': interactionHint,
         'blocks': blocks?.map((b) => b.toJson()).toList(),
         'results': {for (final e in results.entries) '${e.key}': e.value},
+        'chat': chat.map((m) => m.toJson()).toList(),
       };
 
   /// Dang gui len server (khong kem noi dung khoi).
@@ -378,5 +385,33 @@ class Course {
         if (mimeType != null) 'mimeType': mimeType,
         if (text != null) 'text': text,
         if (sources.isNotEmpty) 'sources': sources.map((s) => s.toJson()).toList(),
+      };
+}
+
+/// Mot tin nhan trong cuoc hoi dap voi gia su AI.
+/// Tin cua nguoi hoc: chi co [text]. Tin cua gia su: chuoi khoi [blocks] (hien bang BlockRenderer).
+class ChatMessage {
+  ChatMessage({required this.fromUser, this.text = '', this.blocks = const [], DateTime? at}) : at = at ?? DateTime.now();
+  final bool fromUser;
+  final String text;
+  final List<Block> blocks;
+  final DateTime at;
+
+  /// Phan chu de gui lai lam ngu canh (tom tat cau tra loi cua gia su).
+  String get plainText => fromUser
+      ? text
+      : blocks.map((b) => b.body ?? b.title ?? '').where((s) => s.isNotEmpty).join('\n').trim();
+
+  factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(
+        fromUser: j['from'] == 'user',
+        text: j['text'] ?? '',
+        blocks: Block.parseList(j['blocks']),
+        at: DateTime.tryParse(j['at'] ?? ''),
+      );
+  Map<String, dynamic> toJson() => {
+        'from': fromUser ? 'user' : 'tutor',
+        'text': text,
+        'blocks': blocks.map((b) => b.toJson()).toList(),
+        'at': at.toIso8601String(),
       };
 }

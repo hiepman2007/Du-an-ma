@@ -145,6 +145,57 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
+  /// Gia su hoi dap: them tin nguoi hoc, goi AI, them cau tra loi (chuoi khoi). Loi thi bo tin nguoi hoc va nem loi.
+  Future<void> ask(Course course, Lesson lesson, String question) async {
+    final history = lesson.chat.map((m) => {'from': m.fromUser ? 'user' : 'tutor', 'text': m.plainText}).toList();
+    final userMsg = ChatMessage(fromUser: true, text: question);
+    lesson.chat.add(userMsg);
+    notifyListeners();
+    try {
+      final out = await api.ask({
+        'role': _roleId,
+        'subject': course.subject,
+        'lessonTitle': lesson.title,
+        'question': question,
+        'history': history,
+        ...course.materialJson(),
+      });
+      lesson.chat.add(ChatMessage(fromUser: false, blocks: Block.parseList(out['blocks'])));
+    } catch (_) {
+      lesson.chat.remove(userMsg);
+      notifyListeners();
+      rethrow;
+    }
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> clearChat(Lesson lesson) async {
+    lesson.chat.clear();
+    notifyListeners();
+    await _save();
+  }
+
+  /// Bo de luyen: sinh them cau hoi theo do kho, noi vao cuoi bai. Tra ve so cau them duoc.
+  Future<int> addExercises(Course course, Lesson lesson, String difficulty, {int count = 5}) async {
+    final existing = (lesson.blocks ?? []).where((b) => b.isGraded).map((b) => b.body ?? b.title ?? '').toList();
+    final out = await api.exercises({
+      'role': _roleId,
+      'subject': course.subject,
+      'lessonTitle': lesson.title,
+      'objectives': lesson.objectives,
+      'difficulty': difficulty,
+      'count': count,
+      'existing': existing,
+      ...course.materialJson(),
+    });
+    final blocks = Block.parseList(out['blocks']);
+    lesson.blocks = [...?lesson.blocks, ...blocks];
+    notifyListeners();
+    await _save();
+    return blocks.length;
+  }
+
   /// Chi ghi ket qua lan tra loi dau tien cua moi khoi.
   Future<void> recordResult(Lesson lesson, int blockIndex, bool correct) async {
     if (lesson.results.containsKey(blockIndex)) return;

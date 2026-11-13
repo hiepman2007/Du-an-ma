@@ -11,6 +11,8 @@ const routes = {
   'POST /api/interactive': () => import('./api/interactive.js'),
   'POST /api/explain': () => import('./api/explain.js'),
   'POST /api/simulation': () => import('./api/simulation.js'),
+  'POST /api/ask': () => import('./api/ask.js'),
+  'POST /api/exercises': () => import('./api/exercises.js'),
 };
 
 http.createServer(async (req, res) => {

@@ -6,17 +6,19 @@ Mục tiêu: app di động Android (Flutter) ứng dụng AI vào học tập.
 Chi tiết kế hoạch: `docs/KE-HOACH.md`. Tiêu chí chấm và kịch bản demo: `docs/CHAM-DIEM-VA-DEMO.md`.
 
 ## Sản phẩm
-Biến **tài liệu có sẵn** (PDF, ảnh chụp, văn bản) thành **bài giảng + quiz + bài tập**, rồi chẩn đoán lỗ hổng kiến thức của học sinh và ôn tập đúng chỗ yếu.
-Người dùng: giáo viên/gia sư (tạo nội dung) và học sinh lớp 9–12 (học và ôn).
+"Học Thông Minh": biến **tài liệu có sẵn** (PDF, ảnh chụp, văn bản) thành khóa học tương tác. Nhiều vai trò (sinh viên, học sinh, người đi làm, giáo viên); nhóm đi đầu là **sinh viên ôn thi từ slide**.
 
-Ba tính năng cốt lõi (không được cắt):
-1. Tài liệu → bài giảng + quiz + bài tập, mỗi câu có trích dẫn về đoạn nguồn.
-2. Chẩn đoán lỗ hổng + gia sư gợi mở khi làm sai (không đưa đáp án ngay).
-3. Ôn tập thông minh: sổ lỗi sai + lặp lại ngắt quãng + lịch ôn theo ngày thi.
+Ba chức năng chính (tập trung, không mở rộng thêm trước khi 3 cái này chạy ổn trên máy thật):
+1. **Tài liệu → bộ bài tập**: lộ trình, bài học có trích nguồn; "Bộ đề luyện" sinh thêm 5 câu theo độ khó Dễ/Vừa/Khó (`/api/exercises`).
+2. **Deep interactive**: danh mục bộ máy mô phỏng 3 tầng (xem mục Cấu trúc).
+3. **Gia sư hỏi đáp kiểu ChatGPT** (`lib/screens/tutor_chat_screen.dart`, `/api/ask`): câu trả lời là chuỗi khối do AI chọn (chữ + LaTeX, ảnh thật, đồ thị/mô phỏng, giải từng bước, code demo, câu kiểm tra), lưu theo bài (`Lesson.chat`).
+Công thức hiển thị bằng **LaTeX** (`$...$`, `$$...$$`) qua `lib/widgets/rich_content.dart` (flutter_math_fork); server sửa lỗi escape LaTeX trong JSON (`repairLatex` ở `server/lib/ai.js`).
+Phụ (giữ, không phát triển thêm): tìm nguồn web, tab Ôn tập, thống kê, khóa mẫu.
 
 ## Công nghệ
 - Flutter + Dart, chỉ nhắm Android (thư mục `web/` chỉ dùng để xem giao diện nhanh trên trình duyệt, không dùng để demo).
-- Import Material bằng `package:material_ui/material_ui.dart` (Flutter mới đã đánh dấu `package:flutter/material.dart` là lỗi thời). Tránh gói UI bên thứ ba truyền `ThemeData` của Material cũ (đã gặp lỗi với `flutter_markdown`, nên dùng `lib/widgets/simple_markdown.dart`).
+- Import Material bằng `package:material_ui/material_ui.dart` (Flutter mới đã đánh dấu `package:flutter/material.dart` là lỗi thời). Tránh gói UI bên thứ ba truyền `ThemeData` của Material cũ (đã gặp lỗi với `flutter_markdown`, nên dùng `lib/widgets/rich_content.dart` tự viết: markdown đơn giản + LaTeX + khối code).
+- Kiểm tra bố cục trên màn điện thoại bằng test giao diện (`test/lesson_screen_test.dart`, `test/chat_screen_test.dart`) — đã bắt được lỗi tràn hàng mà xem web không thấy.
 - Lưu dữ liệu cục bộ: một file JSON (`lib/services/storage.dart`), đóng hẳn mở lại vẫn còn.
 - Gọi AI qua backend `server/` (Node, Vercel). Chọn nhà cung cấp bằng `AI_PROVIDER=gemini|openai` (`server/lib/ai.js`): Gemini Interactions API hoặc OpenAI Responses API, cả hai ép JSON theo schema. Schema viết một lần trong `server/lib/schemas.js`; `adaptSchema` đổi `anyOf` cho Gemini. **Không bao giờ để API key trong app hoặc trong git.**
 - Phong cách giao diện theo thinklogic.vn: `lib/theme.dart` (đỏ `#D01628`, nền `#F7F7F7`, thẻ trắng viền mảnh, `Eyebrow`, `SectionHeader`, `NumberTile`, `HeroCard`).
@@ -31,7 +33,8 @@ Ba tính năng cốt lõi (không được cắt):
   - Thêm loại khối mới phải sửa: `server/lib/schemas.js` (BLOCK_TYPES + trường), `server/lib/validate.js`, prompt `CATALOG` trong `server/lib/prompts.js`, `BlockType` trong `models.dart` + `block_renderer.dart`. Dữ liệu riêng của bộ máy đọc qua `block.rawMap(...)`.
 - `lib/screens/`: onboarding (vai trò), home_shell (4 tab), create_course (tài liệu | tìm trên mạng), roadmap, lesson, tutor_sheet, review, profile.
 - `lib/data/sample_course.dart`: khóa mẫu soạn tay để xem giao diện / dự phòng.
-- `server/api/*`: `upload`, `course/outline`, `lesson`, `interactive`, `explain`, `sources/search`, `health`, `usage`.
+- `server/api/*`: `upload`, `course/outline`, `lesson`, `exercises`, `ask`, `interactive`, `simulation`, `explain`, `sources/search`, `health`, `usage`.
+- Khối `code_demo` (Tin học): `lib/widgets/blocks/code_block.dart`; AI ghi kết quả chạy, app không chạy code.
 
 ## Lệnh thường dùng
 - App: `flutter analyze`, `flutter test`, `flutter run`.

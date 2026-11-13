@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/models.dart';
+import '../rich_content.dart';
 import 'common.dart';
 
 /// Ghep cap: cham ben trai roi cham ben phai. Ben phai duoc xao tron.
@@ -74,7 +75,7 @@ class _MatchingBlockState extends State<MatchingBlock> {
             onTap: done ? null : onTap,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 48),
-              child: Padding(padding: const EdgeInsets.all(10), child: Center(child: Text(text, textAlign: TextAlign.center))),
+              child: Padding(padding: const EdgeInsets.all(10), child: Center(child: RichContent(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Color(0xFF262626))))),
             ),
           ),
         ),
@@ -86,7 +87,7 @@ class _MatchingBlockState extends State<MatchingBlock> {
       label: 'Ghép cặp',
       title: widget.block.title,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(widget.block.body?.isNotEmpty == true ? widget.block.body! : 'Chạm một mục bên trái, rồi chạm mục tương ứng bên phải.'),
+        RichContent(widget.block.body?.isNotEmpty == true ? widget.block.body! : 'Chạm một mục bên trái, rồi chạm mục tương ứng bên phải.'),
         const SizedBox(height: 12),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
@@ -151,7 +152,7 @@ class _OrderingBlockState extends State<OrderingBlock> {
       label: 'Sắp xếp thứ tự',
       title: widget.block.title,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(widget.block.body?.isNotEmpty == true ? widget.block.body! : 'Giữ và kéo để sắp xếp đúng thứ tự.'),
+        RichContent(widget.block.body?.isNotEmpty == true ? widget.block.body! : 'Giữ và kéo để sắp xếp đúng thứ tự.'),
         const SizedBox(height: 8),
         ReorderableListView(
           shrinkWrap: true,
@@ -170,7 +171,7 @@ class _OrderingBlockState extends State<OrderingBlock> {
                         : Colors.red.withValues(alpha: 0.15),
                 child: ListTile(
                   leading: CircleAvatar(radius: 14, child: Text('${i + 1}', style: const TextStyle(fontSize: 12))),
-                  title: Text(_items[i]),
+                  title: RichContent(_items[i], style: const TextStyle(fontSize: 15, color: Color(0xFF262626))),
                   trailing: _correct == null ? const Icon(Icons.drag_handle) : null,
                 ),
               ),

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/models.dart';
+import '../rich_content.dart';
 import '../../services/chem.dart';
 import '../../services/expr.dart';
 import '../../theme.dart';
@@ -178,12 +179,12 @@ class _ReactionLabBlockState extends State<ReactionLabBlock> with SingleTickerPr
                     Text(prettyFormula('${r['equation']}'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                     const SizedBox(height: 6),
                     const Eyebrow('Hiện tượng'),
-                    Text('${r['observation']}'),
+                    RichContent('${r['observation']}'),
                     if (r['heat'] == 'exo') const Text('🔥 Phản ứng tỏa nhiệt'),
                     if (r['heat'] == 'endo') const Text('❄️ Phản ứng thu nhiệt'),
                     const SizedBox(height: 6),
                     const Eyebrow('Giải thích'),
-                    Text('${r['explanation']}'),
+                    RichContent('${r['explanation']}'),
                   ]),
           ),
         if (_log.length > 1) ...[
@@ -313,7 +314,7 @@ class _ChemFormulaBlockState extends State<ChemFormulaBlock> {
       label: 'Công thức hóa học',
       title: widget.block.title ?? '${_chem['name'] ?? ''}',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (widget.block.body?.isNotEmpty == true) Text(widget.block.body!),
+        if (widget.block.body?.isNotEmpty == true) RichContent(widget.block.body!),
         const SizedBox(height: 10),
         TextField(
           controller: _ctrl,

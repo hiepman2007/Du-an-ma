@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/models.dart';
+import '../rich_content.dart';
 import '../../services/expr.dart';
 import '../../theme.dart';
 import 'common.dart';
@@ -92,7 +93,7 @@ class _MotionSimBlockState extends State<MotionSimBlock> with SingleTickerProvid
       label: 'Mô phỏng chuyển động · $label',
       title: widget.block.title,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (widget.block.body?.isNotEmpty == true) Text(widget.block.body!),
+        if (widget.block.body?.isNotEmpty == true) RichContent(widget.block.body!),
         const SizedBox(height: 8),
         AspectRatio(
           aspectRatio: 1.5,

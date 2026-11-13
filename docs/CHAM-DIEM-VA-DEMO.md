@@ -49,9 +49,11 @@ Tổng 100 điểm. Hòa điểm thì ưu tiên tiêu chí 1, rồi 2, rồi 3.
 ## Kịch bản trình bày 5 phút
 | Thời gian | Nội dung |
 |---|---|
-| 0:00–0:45 | **Vấn đề:** người dùng là ai, nỗi đau, 1–2 số liệu/trích dẫn khảo sát |
-| 0:45–3:15 | **Demo trực tiếp trên điện thoại thật:** chụp/tải tài liệu → sinh quiz với trích dẫn → làm sai → AI gợi ý → thẻ ôn. Đóng hẳn app, mở lại, dữ liệu còn |
-| 3:15–4:15 | **Mở rộng:** cách có 100 người dùng đầu tiên, vòng lặp chia sẻ mã |
-| 4:15–5:00 | **Phần có trước và phần làm trong ngày;** nêu cảm hứng từ OpenMAIC (MIT) |
+| 0:00–0:40 | **Vấn đề:** sinh viên ôn thi từ slide, nỗi đau, 1–2 số liệu/trích dẫn khảo sát thật |
+| 0:40–2:00 | **Chức năng 1 – Tài liệu → bộ bài tập:** chụp/tải slide → lộ trình → bài học có trích nguồn, công thức LaTeX; bấm "Sinh thêm 5 câu – Khó" |
+| 2:00–3:00 | **Chức năng 2 – Deep interactive:** phòng thí nghiệm ảo (trộn CuSO₄ + NaOH ra kết tủa xanh); khám phá hàm số (kéo tiếp tuyến) |
+| 3:00–4:00 | **Chức năng 3 – Gia sư kiểu ChatGPT:** hỏi "vì sao kết tủa màu xanh?" → câu trả lời có công thức, ảnh thật, câu kiểm tra; làm sai một câu → "Hỏi tiếp gia sư" |
+| 4:00–4:30 | **Đóng hẳn app, mở lại**: khóa học, tiến độ, lịch sử chat còn nguyên |
+| 4:30–5:00 | **Mở rộng + minh bạch:** người dùng thử thật, slide tiếng Anh, nhiều vai trò; phần làm trước/trong ngày; cảm hứng OpenMAIC (MIT) |
 
 Lưu ý: không đọc slide, để sản phẩm chạy trên điện thoại làm trung tâm. Không demo bằng video.

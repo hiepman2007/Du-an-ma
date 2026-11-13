@@ -80,6 +80,8 @@ class ApiClient {
   Future<Map<String, dynamic>> interactive(Map<String, dynamic> body) => _send('POST', '/api/interactive', body);
   Future<Map<String, dynamic>> explain(Map<String, dynamic> body) => _send('POST', '/api/explain', body);
   Future<Map<String, dynamic>> simulation(Map<String, dynamic> body) => _send('POST', '/api/simulation', body);
+  Future<Map<String, dynamic>> ask(Map<String, dynamic> body) => _send('POST', '/api/ask', body);
+  Future<Map<String, dynamic>> exercises(Map<String, dynamic> body) => _send('POST', '/api/exercises', body);
   Future<Map<String, dynamic>> searchSources(String topic, String role) =>
       _send('POST', '/api/sources/search', {'topic': topic, 'role': role});
 }

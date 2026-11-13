@@ -18,10 +18,16 @@ const DEFAULT_MODELS = {
   gemini: { outline: 'gemini-3.5-flash-lite', lesson: 'gemini-3.5-flash-lite', small: 'gemini-3.5-flash-lite' },
 };
 
-/** Model theo buoc: MODEL_OUTLINE / MODEL_LESSON / MODEL_SMALL (cho nha cung cap dang dung), de trong thi dung mac dinh. */
+/**
+ * Model theo buoc: MODEL_OUTLINE / MODEL_LESSON / MODEL_SMALL (cho nha cung cap dang dung), de trong thi dung mac dinh.
+ * Neu ten model khong khop nha cung cap (vd "gpt-..." khi dang dung Gemini) thi bo qua, dung mac dinh,
+ * de doi AI_PROVIDER khong lam hong server.
+ */
 export function modelFor(kind) {
+  const p = providerName();
   const env = { outline: process.env.MODEL_OUTLINE, lesson: process.env.MODEL_LESSON, small: process.env.MODEL_SMALL }[kind];
-  return env || DEFAULT_MODELS[providerName()][kind];
+  const matches = env && (p === 'gemini' ? env.startsWith('gemini') : !env.startsWith('gemini'));
+  return matches ? env : DEFAULT_MODELS[p][kind];
 }
 
 // Gia USD / 1 trieu token (input, cached input, output) - trang gia OpenAI va Google ngay 13/11/2026.
@@ -70,5 +76,32 @@ export async function generateJson({ step, kind, system, parts, schemaName, sche
   } catch {
     throw fail(502, 'AI tra ve dinh dang khong hop le');
   }
-  return { json, citations };
+  return { json: repairLatex(json), citations };
+}
+
+// Lenh LaTeX bat dau bang n (sau khi "\n" bi doc thanh xuong dong): \neq, \nu, \nabla, \not, \ne, \ni, \neg...
+const N_COMMANDS = /^(eq|e|u|abla|ot|eg|i|leq|geq|subseteq|parallel|mid|exists|ewline|Rightarrow|Leftrightarrow)\b/;
+
+/**
+ * AI hay viet "\frac", "\text", "\beta"... trong JSON ma khong nhan doi dau "\",
+ * khi parse thanh ky tu dieu khien (\f form feed, \t tab, \b backspace, \r). Sua lai ve dang LaTeX.
+ */
+export function repairLatex(value) {
+  if (typeof value === 'string') {
+    let s = value
+      .replace(/\f/g, '\\f')
+      .replace(/\t/g, '\\t')
+      .replace(/\x08/g, '\\b')
+      .replace(/\r(?=[a-zA-Z])/g, '\\r');
+    // "\n" + lenh LaTeX chi sua khi nam trong $...$
+    s = s.replace(/\$\$[\s\S]*?\$\$|\$[^$]*\$/g, (m) => m.replace(/\n(?=[a-zA-Z])/g, (nl, off) => (N_COMMANDS.test(m.slice(off + 1)) ? '\\n' : nl)));
+    return s;
+  }
+  if (Array.isArray(value)) return value.map(repairLatex);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k] = k === 'source' || k === 'html' ? v : repairLatex(v); // code/HTML giu nguyen
+    return out;
+  }
+  return value;
 }

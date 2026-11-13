@@ -60,6 +60,7 @@ export function cleanBlocks(blocks, { allowedUrls } = {}) {
       }
       case 'image_card': ok = !!blk.image_query; break; // anh that duoc gan o server (resolveImages)
       case 'custom_sim': ok = !!blk.sim_prompt; break;  // HTML sinh khi hoc sinh bam
+      case 'code_demo': ok = !!blk.code && typeof blk.code.source === 'string' && blk.code.source.length > 0 && blk.code.source.length <= 4000; break;
       case 'formula_lab': {
         const names = new Set((blk.lab?.variables || []).map((v) => v.name));
         ok = !!blk.lab && names.size > 0 && safeExpression(blk.lab.formula, names) && goodVars(blk.lab.variables);

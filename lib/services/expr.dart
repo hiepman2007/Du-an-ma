@@ -49,3 +49,24 @@ String prettyExpr(String e) => e
     .replaceAllMapped(RegExp(r'\^(\d+)'), (m) => m.group(1)!.split('').map((c) => _sup[c] ?? c).join())
     .replaceAll('*', '·')
     .replaceAllMapped(RegExp(r'(?<=[\w)²³])([+\-])(?=[\w(])'), (m) => ' ${m.group(1)} ');
+
+/// Doi bieu thuc may ("a*x^2+b*x+c", "U/R", "sqrt(2*g*h)") sang TeX de hien dep.
+/// Chi xu ly cac dang don gian; truong hop khac van doc duoc.
+String exprToTex(String e) {
+  var s = e.replaceAll(' ', '');
+  // sqrt(...) khong long nhau
+  s = s.replaceAllMapped(RegExp(r'sqrt\(([^()]*)\)'), (m) => r'\sqrt{' '${m.group(1)}}');
+  // a/b voi a, b la ten bien / so / can
+  s = s.replaceAllMapped(RegExp(r'([A-Za-z0-9_.]+|\\sqrt\{[^}]*\})/([A-Za-z0-9_.]+|\\sqrt\{[^}]*\})'),
+      (m) => r'\frac{' '${m.group(1)}}{${m.group(2)}}');
+  // luy thua
+  s = s.replaceAllMapped(RegExp(r'\^\(([^()]*)\)'), (m) => '^{${m.group(1)}}');
+  s = s.replaceAllMapped(RegExp(r'\^([A-Za-z0-9.]+)'), (m) => '^{${m.group(1)}}');
+  // nhan: giua hai so dung \cdot, con lai viet lien
+  s = s.replaceAllMapped(RegExp(r'(\d)\*(\d)'), (m) => '${m.group(1)} ' r'\cdot ' '${m.group(2)}');
+  s = s.replaceAll('*', ' ');
+  for (final f in ['sin', 'cos', 'tan', 'ln', 'log', 'exp']) {
+    s = s.replaceAll(RegExp(r'(?<!\\)\b' '$f' r'\('), '\\$f(');
+  }
+  return s.replaceAll(RegExp(r'\bpi\b'), r'\pi ');
+}

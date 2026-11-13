@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../models/models.dart';
 import 'arrange_blocks.dart';
 import 'chem_blocks.dart';
+import 'code_block.dart';
 import 'common.dart';
 import 'content_blocks.dart';
 import 'custom_sim_block.dart';
@@ -38,6 +39,7 @@ class BlockRenderer extends StatelessWidget {
       BlockType.conceptMap => ConceptMapBlock(block: block),
       BlockType.imageCard => ImageCardBlock(block: block),
       BlockType.customSim => CustomSimBlock(block: block, lesson: lesson),
+      BlockType.codeDemo => CodeDemoBlock(block: block),
     };
   }
 }

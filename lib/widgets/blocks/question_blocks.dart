@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/models.dart';
+import '../rich_content.dart';
 import 'common.dart';
 
 String normalize(String s) => s.toLowerCase().trim().replaceAll(RegExp(r'\s+'), ' ').replaceAll(RegExp(r'[.,;:!?]$'), '');
@@ -27,7 +28,7 @@ class _McqBlockState extends State<McqBlock> {
       icon: Icons.quiz_outlined,
       label: 'Trắc nghiệm',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(b.body ?? '', style: Theme.of(context).textTheme.titleMedium),
+        RichContent(b.body ?? '', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         for (var i = 0; i < b.options.length; i++)
           Padding(
@@ -88,7 +89,7 @@ class _OptionTile extends StatelessWidget {
             child: Row(children: [
               CircleAvatar(radius: 13, child: Text(letter, style: const TextStyle(fontSize: 12))),
               const SizedBox(width: 12),
-              Expanded(child: Text(text, style: const TextStyle(fontSize: 15))),
+              Expanded(child: RichContent(text, style: const TextStyle(fontSize: 15, color: Color(0xFF262626)))),
             ]),
           ),
         ),
@@ -145,7 +146,7 @@ class _TrueFalseBlockState extends State<TrueFalseBlock> {
       icon: Icons.rule,
       label: 'Đúng hay sai?',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(b.body ?? '', style: Theme.of(context).textTheme.titleMedium),
+        RichContent(b.body ?? '', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         Row(children: [btn(true), const SizedBox(width: 12), btn(false)]),
         if (_picked != null)
@@ -195,7 +196,7 @@ class _FillBlankBlockState extends State<FillBlankBlock> {
       icon: Icons.edit_note,
       label: 'Điền vào chỗ trống',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(b.body ?? '', style: Theme.of(context).textTheme.titleMedium),
+        RichContent(b.body ?? '', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(

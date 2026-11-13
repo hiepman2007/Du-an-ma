@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../models/models.dart';
-import '../simple_markdown.dart';
+import '../rich_content.dart';
 import 'common.dart';
 
 class TextSectionBlock extends StatelessWidget {
@@ -15,7 +15,7 @@ class TextSectionBlock extends StatelessWidget {
       label: 'Bài giảng',
       title: block.title,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SimpleMarkdown(block.body ?? ''),
+        RichContent(block.body ?? ''),
         SourceNote(block: block),
       ]),
     );
@@ -61,9 +61,16 @@ class _FlashcardsBlockState extends State<FlashcardsBlock> {
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: Center(
-                    child: Text(back ? cards[i].$2 : cards[i].$1,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: back ? 15 : 19, fontWeight: back ? FontWeight.w400 : FontWeight.w700)),
+                    child: SingleChildScrollView(
+                      child: RichContent(back ? cards[i].$2 : cards[i].$1,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: back ? 15 : 19,
+                            height: 1.4,
+                            fontWeight: back ? FontWeight.w400 : FontWeight.w700,
+                            color: back ? cs.onTertiaryContainer : cs.onPrimaryContainer,
+                          )),
+                    ),
                   ),
                 ),
               );

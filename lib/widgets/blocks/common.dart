@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/models.dart';
+import '../rich_content.dart';
 import '../../theme.dart';
 
 /// Ham goi lai khi nguoi hoc tra loi mot khoi co cham diem.
@@ -27,7 +28,7 @@ class BlockCard extends StatelessWidget {
             Row(children: [
               Icon(icon, size: 16, color: cs.primary),
               const SizedBox(width: 6),
-              Eyebrow(label),
+              Flexible(child: Eyebrow(label)),
             ]),
             if (title != null && title!.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -111,7 +112,7 @@ class AnswerFeedback extends StatelessWidget {
           Text(correct ? 'Chính xác!' : 'Chưa đúng', style: TextStyle(color: color, fontWeight: FontWeight.w700)),
         ]),
         if (correct && explanation != null && explanation!.isNotEmpty)
-          Padding(padding: const EdgeInsets.only(top: 6), child: Text(explanation!)),
+          Padding(padding: const EdgeInsets.only(top: 6), child: RichContent(explanation!)),
         if (!correct && onTutor != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),

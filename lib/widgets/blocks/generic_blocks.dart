@@ -5,7 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/models.dart';
 import '../../theme.dart';
-import '../simple_markdown.dart';
+import '../rich_content.dart';
 import 'common.dart';
 import 'question_blocks.dart' show normalize;
 
@@ -48,7 +48,7 @@ class _StepSolverBlockState extends State<StepSolverBlock> {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(12)),
-          child: SimpleMarkdown(widget.block.body ?? ''),
+          child: RichContent(widget.block.body ?? ''),
         ),
         const SizedBox(height: 10),
         for (var i = 0; i < _shown; i++)
@@ -57,7 +57,7 @@ class _StepSolverBlockState extends State<StepSolverBlock> {
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               NumberTile(i + 1, done: true),
               const SizedBox(width: 10),
-              Expanded(child: SimpleMarkdown('${_steps[i]['text']}')),
+              Expanded(child: RichContent('${_steps[i]['text']}')),
             ]),
           ),
         if (next != null) ...[
@@ -110,7 +110,7 @@ class _ConceptMapBlockState extends State<ConceptMapBlock> {
       label: 'Sơ đồ tư duy',
       title: widget.block.title,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (widget.block.body?.isNotEmpty == true) Text(widget.block.body!),
+        if (widget.block.body?.isNotEmpty == true) RichContent(widget.block.body!),
         const SizedBox(height: 8),
         LayoutBuilder(builder: (context, c) {
           final w = c.maxWidth, h = max(300.0, w * 0.95);
@@ -166,7 +166,7 @@ class _ConceptMapBlockState extends State<ConceptMapBlock> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('${sel['label']}', style: const TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
-              Text('${sel['detail']}'),
+              RichContent('${sel['detail']}'),
               for (final e in _edges.where((e) => e['from'] == _selected || e['to'] == _selected))
                 Text('→ ${e['label']}: ${_nodes.firstWhere((n) => n['id'] == (e['from'] == _selected ? e['to'] : e['from']), orElse: () => {'label': ''})['label']}',
                     style: const TextStyle(fontSize: 13, color: AppColors.muted)),
@@ -222,7 +222,7 @@ class ImageCardBlock extends StatelessWidget {
             errorBuilder: (_, _, _) => const SizedBox(height: 80, child: Center(child: Text('Không tải được ảnh (cần mạng)'))),
           ),
         ),
-        if (block.body?.isNotEmpty == true) Padding(padding: const EdgeInsets.only(top: 8), child: Text(block.body!)),
+        if (block.body?.isNotEmpty == true) Padding(padding: const EdgeInsets.only(top: 8), child: RichContent(block.body!)),
         const SizedBox(height: 6),
         InkWell(
           onTap: img['page_url'] == null ? null : () => launchUrl(Uri.parse('${img['page_url']}'), mode: LaunchMode.externalApplication),

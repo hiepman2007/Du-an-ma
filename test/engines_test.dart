@@ -40,3 +40,4 @@ void main() {
     expect(Block.tryParse({'type': 'custom_sim', 'sim_prompt': 'p'})!.isInteractive, isTrue);
   });
 }
+

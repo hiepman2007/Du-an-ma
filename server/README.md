@@ -41,6 +41,9 @@ Giới hạn: body tối đa ~4.5MB (PDF ≤ 4MB), mỗi request tối đa 60 gi
 | `POST /api/upload` | PDF/ảnh → Files API của nhà cung cấp → `fileId` |
 | `POST /api/course/outline` | Lên lộ trình khóa học |
 | `POST /api/lesson` | Sinh bài học = chuỗi khối widget |
+| `POST /api/exercises` | Bộ đề luyện: thêm N câu theo độ khó easy/medium/hard, không trùng câu đã có |
+| `POST /api/ask` | Gia sư hỏi đáp: câu trả lời là 1–4 khối (chữ + LaTeX, ảnh, đồ thị/mô phỏng, giải từng bước, code demo) |
+| `POST /api/simulation` | Mô phỏng tùy biến: HTML tự chứa, đã chặn tài nguyên ngoài + CSP |
 | `POST /api/interactive` | Thêm khối tương tác cho một khái niệm |
 | `POST /api/explain` | Gia sư: gợi ý, giải thích, gốc lỗi |
 | `POST /api/sources/search` | Tìm nguồn web (chỉ giữ URL từ công cụ tìm kiếm), gắn nhãn tin cậy |
