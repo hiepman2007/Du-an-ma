@@ -13,6 +13,8 @@
 
 Claude Code đọc skill ở `.claude/skills/` và agent ở `.claude/agents/`. Codex đọc bản tương thích ở `.agents/skills/`. Codex đã có agent Rapid Prototyper ở cấu hình người dùng; bản đó được giữ nguyên.
 
+Các thư mục skill và agent dành cho Claude ở trên được lưu trong Git cùng dự án. Máy khác clone repo sẽ có sẵn chúng; vẫn cần cài Claude Code/Codex và môi trường Flutter riêng. Agent Rapid Prototyper ở cấu hình người dùng của Codex trên máy hiện tại không đi theo repo; bản agent trong `.claude/agents/` dành cho Claude Code.
+
 ## Cách dùng
 
 Mở Claude Code hoặc Codex tại thư mục dự án. Skill mới có thể dùng từ lượt tiếp theo; nếu phiên đang mở chưa nhận ra, mở lại phiên tại đây.

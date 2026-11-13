@@ -21,7 +21,13 @@ android/app/.cxx/
 # Cau hinh build app (chua APP_TOKEN)
 app_config.json
 
-# Cong cu/skill cua moi truong, khong phai code du an
-.agents/
+# Chia se skill/agent cua du an; giu cau hinh ca nhan o may cuc bo
+.agents/*
+!.agents/skills/
 .claude/*
 !.claude/launch.json
+!.claude/skills/
+!.claude/agents/
+
+# SDK cai rieng tren tung may, khong luu trong kho ma nguon
+devandroid-sdk/

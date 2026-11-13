@@ -8,6 +8,21 @@ Biến tài liệu có sẵn (PDF, ảnh, văn bản) thành bài giảng, quiz 
 - [CLAUDE.md](CLAUDE.md) — hướng dẫn làm việc cho dự án
 - [docs/KE-HOACH.md](docs/KE-HOACH.md) — vấn đề, tính năng, kiến trúc, lịch trong ngày
 - [docs/CHAM-DIEM-VA-DEMO.md](docs/CHAM-DIEM-VA-DEMO.md) — tiêu chí chấm, checklist, kịch bản trình bày
+- [docs/AI-SKILLS.md](docs/AI-SKILLS.md) — Ponytail, Flutter/Dart, Anthropic Skills và Rapid Prototyper đi kèm dự án
+
+## Chuẩn bị trên máy khác
+
+1. Cài Git, Flutter SDK tương thích Dart `^3.14.0`, Android SDK và Node.js 20 trở lên.
+2. Clone kho mã nguồn và tải thư viện:
+   ```bash
+   git clone https://github.com/hiepman2007/Du-an-ma.git
+   cd Du-an-ma
+   flutter pub get
+   ```
+3. Sao chép `app_config.example.json` thành `app_config.json`, điền địa chỉ backend và `APP_TOKEN` của bạn. Nếu chạy backend riêng, sao chép `server/.env.example` thành `server/.env` rồi cấu hình nhà cung cấp AI.
+4. Các thư mục `.claude/skills`, `.claude/agents` và `.agents/skills` đã nằm trong repo: mở Claude Code hoặc Codex tại thư mục dự án để nhận skill, không cần tải lại từng bộ.
+
+`app_config.json`, `.env`, SDK, bộ đệm và file build được giữ ngoài Git. Giữ API key ở backend. Riêng bản web xem trước cần giữ token backend ở proxy cục bộ; không dùng cấu hình chứa token thật để biên dịch JavaScript.
 
 ## Chạy trên điện thoại Android
 1. Bật **Tùy chọn nhà phát triển → Gỡ lỗi USB** trên điện thoại, cắm cáp, chấp nhận hộp thoại tin cậy.
@@ -18,11 +33,11 @@ Biến tài liệu có sẵn (PDF, ảnh, văn bản) thành bài giảng, quiz 
    ```
 3. Chạy app:
    ```bash
-   flutter run
+   flutter run --dart-define-from-file=app_config.json
    ```
 4. Build APK cài thật để demo:
    ```bash
-   flutter build apk --release
+   flutter build apk --release --dart-define-from-file=app_config.json
    ```
    File tạo ra ở `build/app/outputs/flutter-apk/app-release.apk`.
 
