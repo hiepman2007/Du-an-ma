@@ -10,6 +10,7 @@ import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/chat_cards.dart';
 import '../widgets/blocks/block_renderer.dart';
+import '../widgets/blocks/common.dart' show BlockFlat;
 import '../widgets/motion.dart';
 import '../widgets/source_widgets.dart';
 import '../widgets/study_citation.dart';
@@ -44,9 +45,17 @@ class TutorChat extends StatefulWidget {
     this.emptyActions = const [],
     this.onSaveNote,
     this.onClose,
+    this.controller,
+    this.tools = const [],
   });
 
   final String courseId;
+
+  /// So hoc dieu khien tu thanh tieu de cua no (mo lich su, cuoc tro chuyen moi); co thi chat khong ve thanh tieu de rieng.
+  final TutorChatController? controller;
+
+  /// Hang chip cong cu (Lo trinh, Quiz...) hien ngay tren o nhap, kieu StudyFetch.
+  final List<Widget> tools;
 
   /// Khung tro ly noi (bottom sheet): hien nut dong.
   final VoidCallback? onClose;
@@ -67,10 +76,18 @@ class TutorChat extends StatefulWidget {
   State<TutorChat> createState() => _TutorChatState();
 }
 
+/// Cau noi giua thanh tieu de cua so hoc va khung chat ben trong.
+class TutorChatController {
+  VoidCallback? _history, _newChat;
+  void openHistory() => _history?.call();
+  void newChat() => _newChat?.call();
+}
+
 class _TutorChatState extends State<TutorChat> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
   final _focus = FocusNode();
+  final _scaffold = GlobalKey<ScaffoldState>();
   late ChatThread _thread;
 
   /// null = theo cai dat cua khoa hoc (allowWeb).
@@ -94,6 +111,11 @@ class _TutorChatState extends State<TutorChat> {
             ? s.newThread(course, lessonId: widget.lessonId)
             : s.latestThread(course, lessonId: widget.lessonId);
     _input.text = widget.draftQuestion ?? '';
+    widget.controller?._history = () => _scaffold.currentState?.openDrawer();
+    widget.controller?._newChat = () {
+      final c = context.read<AppState>().courseById(widget.courseId);
+      if (c != null && _thread.messages.isNotEmpty) _newChat(c, lessonId: _thread.lessonId);
+    };
     final q = widget.initialQuestion;
     if (q != null && q.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -250,8 +272,9 @@ class _TutorChatState extends State<TutorChat> {
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (c) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
+        child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(leading: const Icon(Icons.picture_as_pdf_outlined), title: const Text('Tải PDF / slide'), onTap: () => Navigator.pop(c, 'pdf')),
           ListTile(leading: const Icon(Icons.photo_camera_outlined), title: const Text('Chụp ảnh đề bài'), onTap: () => Navigator.pop(c, 'camera')),
           ListTile(leading: const Icon(Icons.photo_library_outlined), title: const Text('Ảnh có sẵn'), onTap: () => Navigator.pop(c, 'gallery')),
@@ -263,6 +286,16 @@ class _TutorChatState extends State<TutorChat> {
             onTap: () => Navigator.pop(c, 'sources'),
           ),
           StatefulBuilder(builder: (c2, set) => SwitchListTile(
+                secondary: const Icon(Icons.lightbulb_outline),
+                title: const Text('Chế độ Gợi mở'),
+                subtitle: const Text('Gợi ý từng bước để bạn tự tìm ra đáp án'),
+                value: _socratic,
+                onChanged: (v) {
+                  set(() {});
+                  setState(() => _socratic = v);
+                },
+              )),
+          StatefulBuilder(builder: (c2, set) => SwitchListTile(
                 secondary: const Icon(Icons.public),
                 title: const Text('Tra cứu web'),
                 subtitle: const Text('Tắt: chỉ trả lời từ nguồn của bạn'),
@@ -272,7 +305,7 @@ class _TutorChatState extends State<TutorChat> {
                   setState(() => _web = v);
                 },
               )),
-        ]),
+        ])),
       ),
     );
     if (!mounted || action == null) return;
@@ -345,7 +378,10 @@ class _TutorChatState extends State<TutorChat> {
     final lastQuestion = msgs.lastIndexWhere((m) => m.fromUser);
     final web = _web ?? course.allowWeb;
 
+    final embedded = widget.controller != null;
     return Scaffold(
+      key: _scaffold,
+      backgroundColor: Colors.white,
       drawer: _ThreadDrawer(
         course: course,
         current: _thread,
@@ -356,7 +392,7 @@ class _TutorChatState extends State<TutorChat> {
         },
         onDelete: (t) => s.deleteThread(course, t),
       ),
-      appBar: AppBar(
+      appBar: embedded ? null : AppBar(
         primary: widget.standalone,
         toolbarHeight: widget.standalone ? null : 52,
         automaticallyImplyLeading: false,
@@ -452,12 +488,25 @@ class _TutorChatState extends State<TutorChat> {
             ]),
           ),
         if (_attaching) const LinearProgressIndicator(minHeight: 2),
+        if (widget.tools.isNotEmpty)
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: widget.tools.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (_, i) => Center(child: widget.tools[i]),
+            ),
+          ),
         _Composer(
           controller: _input,
           focus: _focus,
           busy: busy,
           socratic: _socratic,
           web: web,
+          contextLabel: embedded && course.lessons.isNotEmpty ? (lesson?.title ?? 'Cả khóa') : null,
+          onContext: () => _pickContext(course),
           hint: lesson == null ? 'Hỏi gia sư bất cứ điều gì…' : 'Hỏi về bài này…',
           onPlus: () => _plusMenu(course),
           onSend: () => _send(_input.text),
@@ -483,11 +532,15 @@ class _Composer extends StatelessWidget {
     required this.onStop,
     required this.onSocratic,
     required this.onWebOff,
+    this.contextLabel,
+    this.onContext,
   });
   final TextEditingController controller;
   final FocusNode focus;
   final bool busy, socratic, web;
   final String hint;
+  final String? contextLabel;
+  final VoidCallback? onContext;
   final VoidCallback onPlus, onSend, onStop, onWebOff;
   final ValueChanged<bool> onSocratic;
 
@@ -496,13 +549,12 @@ class _Composer extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
-        child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppColors.border),
-            boxShadow: const [BoxShadow(color: Color(0x0F000000), blurRadius: 12, offset: Offset(0, 2))],
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(28),
           ),
           padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -525,16 +577,29 @@ class _Composer extends StatelessWidget {
               ),
             ),
             Row(children: [
-              IconButton(tooltip: 'Thêm', onPressed: onPlus, icon: const Icon(Icons.add_circle_outline)),
-              FilterChip(
-                selected: socratic,
-                showCheckmark: false,
-                visualDensity: VisualDensity.compact,
-                avatar: Icon(Icons.lightbulb_outline, size: 16, color: socratic ? AppColors.primary : AppColors.muted),
-                label: const Text('Gợi mở'),
-                tooltip: 'Gia sư gợi ý từng bước để bạn tự tìm đáp án',
-                onSelected: onSocratic,
-              ),
+              IconButton(tooltip: 'Thêm', onPressed: onPlus, icon: const Icon(Icons.add)),
+              if (contextLabel != null)
+                Flexible(
+                  child: ActionChip(
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: Colors.white,
+                    avatar: const Icon(Icons.menu_book_outlined, size: 16),
+                    label: Text(contextLabel!, overflow: TextOverflow.ellipsis),
+                    tooltip: 'Gia sư dựa vào cả khóa hay một bài',
+                    onPressed: onContext,
+                  ),
+                ),
+              if (socratic) ...[
+                const SizedBox(width: 6),
+                InputChip(
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: Colors.white,
+                  avatar: const Icon(Icons.lightbulb, size: 16, color: AppColors.primary),
+                  label: const Text('Gợi mở'),
+                  onDeleted: () => onSocratic(false),
+                  deleteButtonTooltipMessage: 'Tắt Gợi mở',
+                ),
+              ],
               if (web) ...[
                 const SizedBox(width: 6),
                 Flexible(
@@ -715,7 +780,7 @@ class _UserBubble extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
             margin: const EdgeInsets.only(top: 12, bottom: 2),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(color: const Color(0xFFF1F1F1), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(22)),
             child: Text(text, style: const TextStyle(fontSize: 15, color: AppColors.ink)),
           ),
         ),
@@ -828,14 +893,8 @@ class _TutorAnswerState extends State<_TutorAnswer> with SingleTickerProviderSta
           return GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: done ? null : () => _c.value = 1,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                const CircleAvatar(radius: 12, backgroundColor: AppColors.primary, child: Icon(Icons.auto_awesome, size: 14, color: Colors.white)),
-                const SizedBox(width: 6),
-                const Eyebrow('Gia sư AI'),
-                const SizedBox(width: 8),
-                Flexible(child: _ScopeBadge(mode: m.webMode)),
-              ]),
+            child: BlockFlat(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (m.webMode != 'off') Padding(padding: const EdgeInsets.only(bottom: 4), child: _ScopeBadge(mode: m.webMode)),
               for (final (i, b) in m.blocks.indexed)
                 if (i == 0 || done) ...[
                   // Cau hoi kiem tra trong chat khong tinh vao ket qua bai hoc.
@@ -849,14 +908,15 @@ class _TutorAnswerState extends State<_TutorAnswer> with SingleTickerProviderSta
                 ],
               if (done && m.web.isNotEmpty) _WebSources(sources: m.web),
               if (done) IntentCard(course: widget.course, message: m, question: widget.question, onAsk: widget.onAsk),
-              if (done)
+              // Nut nho chi o cau tra loi moi nhat, nhu ChatGPT.
+              if (done && widget.onRegenerate != null)
                 Row(children: [
                   _MiniAction(icon: Icons.copy, tooltip: 'Sao chép', onTap: widget.onCopy),
-                  if (widget.onRegenerate != null) _MiniAction(icon: Icons.refresh, tooltip: 'Tạo lại câu trả lời', onTap: widget.onRegenerate!),
+                  _MiniAction(icon: Icons.refresh, tooltip: 'Tạo lại câu trả lời', onTap: widget.onRegenerate!),
                   if (widget.onSaveNote != null) _MiniAction(icon: Icons.bookmark_add_outlined, tooltip: 'Lưu ghi chú', onTap: widget.onSaveNote!),
                 ]),
-            ]),
-          );
+            ])),
+          ).enter(context, dy: 0.04);
         },
       ),
     );

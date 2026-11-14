@@ -7,6 +7,7 @@ import '../services/intent.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/mascot.dart';
+import '../widgets/motion.dart';
 import '../widgets/roadmap_map.dart';
 import '../widgets/sims/sim_catalog.dart';
 import 'home_shell.dart';
@@ -114,9 +115,20 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 820),
             child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 28), children: [
-              Text(_greeting(), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              MascotBubble(text: tip, mood: mood),
+              Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                Mascot(size: 56, mood: mood),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(_greeting(), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, height: 1.15)),
+                    const SizedBox(height: 2),
+                    Text(tip, style: const TextStyle(color: AppColors.muted, fontSize: 14.5)),
+                  ]),
+                ),
+              ]).enter(context),
+              const SizedBox(height: 18),
+              _AskBox(controller: _input, busy: _busy, onSubmit: _submit).enter(context, index: 1),
               const SizedBox(height: 14),
               Row(children: [
                 Expanded(child: _Stat(icon: Icons.local_fire_department, color: const Color(0xFFFF7A00), value: '${s.streak}', label: 'ngày liên tiếp')),
@@ -133,10 +145,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 8),
                 Expanded(child: _Stat(icon: Icons.check_circle, color: AppColors.success, value: '$done', label: 'bài đã học')),
               ]),
-              const SizedBox(height: 10),
-              _WeekChart(activity: s.activity),
-              const SizedBox(height: 14),
-              _AskBox(controller: _input, busy: _busy, onSubmit: _submit),
               if (s.canImportGuest)
                 Align(
                   alignment: Alignment.centerLeft,
@@ -152,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               if (current != null && next != null) ...[
                 const SizedBox(height: 18),
-                const Eyebrow('Tiếp tục học'),
+                const _Section('Tiếp tục học'),
                 const SizedBox(height: 6),
                 Card(
                   margin: EdgeInsets.zero,
@@ -171,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
               if (review.isNotEmpty) ...[
                 const SizedBox(height: 18),
-                const Eyebrow('Cần ôn lại'),
+                const _Section('Cần ôn lại'),
                 const SizedBox(height: 6),
                 for (final (c, l) in review.take(3))
                   Card(
@@ -189,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
               const SizedBox(height: 18),
               Row(children: [
-                const Expanded(child: Eyebrow('Sổ học tập')),
+                const Expanded(child: _Section('Sổ học tập')),
                 TextButton.icon(
                   onPressed: () async {
                     final c = await s.createNotebook(sourcesFirst: true);
@@ -233,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ]),
               const SizedBox(height: 20),
               Row(children: [
-                const Expanded(child: Eyebrow('Phòng thí nghiệm ảo')),
+                const Expanded(child: _Section('Phòng thí nghiệm ảo')),
                 TextButton(
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LabScreen(courseId: current?.id))),
                   child: const Text('Xem tất cả'),
@@ -278,7 +286,7 @@ class _Stat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Icon(icon, color: color, size: 20),
@@ -298,48 +306,6 @@ class _Stat extends StatelessWidget {
       );
 }
 
-class _WeekChart extends StatelessWidget {
-  const _WeekChart({required this.activity});
-  final Map<String, int> activity;
-
-  @override
-  Widget build(BuildContext context) {
-    final today = DateTime.now();
-    final days = [for (var i = 6; i >= 0; i--) today.subtract(Duration(days: i))];
-    final values = [for (final d in days) activity[AppState.dayKey(d)] ?? 0];
-    final top = values.fold(AppState.dailyGoal, (a, b) => a > b ? a : b);
-    const names = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('7 ngày qua', style: TextStyle(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 70,
-          child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            for (final (i, v) in values.indexed)
-              Expanded(
-                child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  Container(
-                    height: 4 + 46 * v / top,
-                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                    decoration: BoxDecoration(
-                      color: i == 6 ? AppColors.primary : AppColors.primary.withValues(alpha: v == 0 ? 0.12 : 0.45),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(names[days[i].weekday - 1], style: TextStyle(fontSize: 11, color: i == 6 ? AppColors.primary : AppColors.muted)),
-                ]),
-              ),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
 class _AskBox extends StatelessWidget {
   const _AskBox({required this.controller, required this.busy, required this.onSubmit});
   final TextEditingController controller;
@@ -352,9 +318,8 @@ class _AskBox extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(28),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           TextField(
@@ -377,8 +342,19 @@ class _AskBox extends StatelessWidget {
           const SizedBox(height: 6),
           Wrap(spacing: 6, runSpacing: 6, children: [
             for (final idea in _ideas)
-              ActionChip(label: Text(idea, style: const TextStyle(fontSize: 12.5)), onPressed: busy ? null : () => onSubmit(idea)),
+              ActionChip(
+                  backgroundColor: Colors.white,
+                  label: Text(idea, style: const TextStyle(fontSize: 12.5)),
+                  onPressed: busy ? null : () => onSubmit(idea)),
           ]),
         ]),
       );
+}
+
+/// Tieu de muc gon (chu thuong dam), thay cho nhan in hoa.
+class _Section extends StatelessWidget {
+  const _Section(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700));
 }

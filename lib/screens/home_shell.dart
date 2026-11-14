@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/intent.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
+import '../widgets/motion.dart';
 import 'lab_screen.dart';
 import 'study_account_screen.dart';
 import 'study_actions.dart';
@@ -86,7 +87,7 @@ enum NotebookTab {
   final IconData icon;
 }
 
-/// So hoc tap kieu NotebookLM: Nguon | Chat | Studio. Dien thoai: tab duoi day; man rong: 3 cot.
+/// So hoc tap kieu NotebookLM: mot thanh tieu de, cong tac Chat · Nguon · Studio ngay ben duoi; man rong: 3 cot.
 class NotebookScreen extends StatefulWidget {
   const NotebookScreen({
     super.key,
@@ -103,6 +104,27 @@ class NotebookScreen extends StatefulWidget {
 class _NotebookScreenState extends State<NotebookScreen> {
   late NotebookTab _tab = widget.initialTab;
   String? _courseId;
+  final _chatCtl = TutorChatController();
+
+  static const _tabOrder = [NotebookTab.chat, NotebookTab.sources, NotebookTab.studio];
+
+  /// Chip cong cu kieu StudyFetch ngay tren o chat.
+  List<Widget> _tools(Course course) {
+    Widget chip(IconData icon, String label, VoidCallback onTap) => ActionChip(
+          avatar: Icon(icon, size: 18, color: AppColors.primary),
+          label: Text(label),
+          onPressed: onTap,
+        );
+    return [
+      chip(Icons.route_outlined, 'Lộ trình',
+          () => course.lessons.isEmpty ? _plan(course, 'lập lộ trình') : openStudyPage(context, course, StudyPage.plan)),
+      chip(Icons.quiz_outlined, 'Quiz', () => openStudyPage(context, course, StudyPage.quiz)),
+      chip(Icons.style_outlined, 'Thẻ ghi nhớ', () => openStudyPage(context, course, StudyPage.flashcards)),
+      chip(Icons.science_outlined, 'Thí nghiệm', () => openStudyPage(context, course, StudyPage.lab)),
+      chip(Icons.lightbulb_outline, 'Tóm tắt', () => StudyActions.create(context, course, StudyArtifactKind.summary)),
+      chip(Icons.timer_outlined, 'Thi thử', () => openStudyPage(context, course, StudyPage.test)),
+    ];
+  }
 
   /// So moi mo tu chu de -> hoi muc tieu va lap lo trinh; so tao tu tai lieu -> tab Nguon.
   void _onCourse(AppState state, Course course) {
@@ -206,26 +228,9 @@ class _NotebookScreenState extends State<NotebookScreen> {
     initialQuestion: widget.initialQuestion,
     onIntercept: (q) => _intercept(course, q),
     onSaveNote: (m) => state.saveChatNote(course, m),
-    emptyActions: [
-      ActionChip(
-        avatar: const Icon(Icons.route_outlined, size: 18),
-        label: Text(course.lessons.isEmpty ? 'Lập lộ trình' : 'Xem lộ trình'),
-        onPressed: () => course.lessons.isEmpty
-            ? _plan(course, 'lập lộ trình')
-            : openStudyPage(context, course, StudyPage.plan),
-      ),
-      ActionChip(
-        avatar: const Icon(Icons.science_outlined, size: 18),
-        label: const Text('Thí nghiệm ảo'),
-        onPressed: () => openStudyPage(context, course, StudyPage.lab),
-      ),
-      if (course.enabledSources.isNotEmpty || course.isSample)
-        ActionChip(
-          avatar: const Icon(Icons.quiz_outlined, size: 18),
-          label: const Text('Tạo quiz'),
-          onPressed: () => StudyActions.quizBuilder(context, course),
-        ),
-    ],
+    controller: _chatCtl,
+    tools: _tools(course),
+    emptyActions: const [],
   );
 
   @override
@@ -280,6 +285,16 @@ class _NotebookScreenState extends State<NotebookScreen> {
         return Scaffold(
           appBar: AppBar(
             titleSpacing: 0,
+            bottom: wide
+                ? null
+                : PreferredSize(
+                    preferredSize: const Size.fromHeight(56),
+                    child: _TabSwitch(
+                      tabs: _tabOrder,
+                      current: _tab,
+                      onChanged: (t) => setState(() => _tab = t),
+                    ),
+                  ),
             title: InkWell(
               onTap: () => _library(state),
               child: Row(
@@ -301,16 +316,15 @@ class _NotebookScreenState extends State<NotebookScreen> {
               ),
             ),
             actions: [
-              IconButton(
-                tooltip: 'Tài khoản',
-                icon: Icon(
-                  state.signedIn ? Icons.account_circle : Icons.person_outline,
+              if (wide || _tab == NotebookTab.chat) ...[
+                IconButton(tooltip: 'Lịch sử trò chuyện', icon: const Icon(Icons.history), onPressed: _chatCtl.openHistory),
+                IconButton(tooltip: 'Cuộc trò chuyện mới', icon: const Icon(Icons.edit_square), onPressed: _chatCtl.newChat),
+              ] else
+                IconButton(
+                  tooltip: 'Tài khoản',
+                  icon: Icon(state.signedIn ? Icons.account_circle : Icons.person_outline),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyAccountScreen())),
                 ),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const StudyAccountScreen()),
-                ),
-              ),
             ],
           ),
           body: Column(
@@ -319,21 +333,55 @@ class _NotebookScreenState extends State<NotebookScreen> {
               Expanded(child: body),
             ],
           ),
-          bottomNavigationBar: wide
-              ? null
-              : NavigationBar(
-                  selectedIndex: _tab.index,
-                  onDestinationSelected: (i) =>
-                      setState(() => _tab = NotebookTab.values[i]),
-                  destinations: [
-                    for (final t in NotebookTab.values)
-                      NavigationDestination(icon: Icon(t.icon), label: t.label),
-                  ],
-                ),
         );
       },
     );
   }
+}
+
+/// Cong tac dang vien thuoc (kieu NotebookLM): o dang chon noi len nen trang, truot muot.
+class _TabSwitch extends StatelessWidget {
+  const _TabSwitch({required this.tabs, required this.current, required this.onChanged});
+  final List<NotebookTab> tabs;
+  final NotebookTab current;
+  final ValueChanged<NotebookTab> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(999)),
+          child: Row(children: [
+            for (final t in tabs)
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onChanged(t),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: t == current ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: t == current ? const [BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2))] : null,
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(t.icon, size: 18, color: t == current ? AppColors.primary : AppColors.muted),
+                      const SizedBox(width: 6),
+                      Text(t.label,
+                          style: TextStyle(
+                              fontWeight: t == current ? FontWeight.w700 : FontWeight.w500,
+                              color: t == current ? AppColors.foreground : AppColors.muted)),
+                    ]),
+                  ),
+                ),
+              ),
+          ]),
+        ),
+      );
 }
 
 class _Panel extends StatelessWidget {
@@ -387,53 +435,55 @@ class StudioPanel extends StatelessWidget {
     (StudyPage.dashboard, Color(0xFF546E7A)),
   ];
 
+  static const _desc = {
+    StudyPage.plan: 'Các chặng học theo ngày thi',
+    StudyPage.lab: 'Thí nghiệm, hiện tượng kéo thử được',
+    StudyPage.quiz: 'Câu hỏi từ tài liệu, có giải thích',
+    StudyPage.flashcards: 'Lật thẻ để tự kiểm tra',
+    StudyPage.test: 'Làm bài có đếm giờ',
+    StudyPage.arcade: 'Trò ghép thuật ngữ nhanh tay',
+    StudyPage.explainers: 'Ý chính có trích nguồn',
+    StudyPage.research: 'Tìm thêm nguồn uy tín trên mạng',
+    StudyPage.miniApps: 'Mô tả bằng lời, AI dựng ứng dụng',
+    StudyPage.dashboard: 'Tiến độ và bài cần ôn',
+  };
+
   @override
   Widget build(BuildContext context) {
     context.watch<AppState>();
     final made = course.artifacts.reversed.toList();
     return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       children: [
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: 2.9,
-          children: [
-            for (final (page, color) in tools)
-              Material(
-                color: color.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => openStudyPage(context, course, page),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      children: [
-                        Icon(page.icon, color: color, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            page.label,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13.5,
-                              height: 1.15,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+        // Danh sach cong cu dang hang (bieu tuong mau + ten + mo ta), kieu NotebookLM Studio.
+        for (final (i, (page, color)) in tools.indexed)
+          PressScale(
+            onTap: () => openStudyPage(context, course, page),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18)),
+                child: Row(children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+                    child: Icon(page.icon, color: color, size: 22),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(page.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
+                      Text(_desc[page] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+                    ]),
+                  ),
+                  const Icon(Icons.chevron_right, color: AppColors.muted),
+                ]),
               ),
-          ],
-        ),
+            ),
+          ).enter(context, index: i),
         const SizedBox(height: 16),
         const Text(
           'Đã tạo',

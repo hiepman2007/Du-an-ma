@@ -5,16 +5,17 @@ class AppColors {
   static const primary = Color(0xFFD01628);
   static const primaryDark = Color(0xFFA2111F);
   static const accent = Color(0xFFFFF1F0); // nen nhat mau do
-  static const background = Color(0xFFF7F7F7);
+  static const background = Color(0xFFFFFFFF);
+  static const surface = Color(0xFFF4F4F5); // be mat phu xam rat nhat (the, o nhap, chip)
   static const foreground = Color(0xFF262626);
-  static const muted = Color(0xFF8C8C8C);
-  static const border = Color(0xFFD9D9D9);
+  static const muted = Color(0xFF7A7A80);
+  static const border = Color(0xFFE7E7EA);
   static const ink = Color(0xFF2B2525); // the noi bat nen toi
   static const success = Color(0xFF1E8E3E);
   static const danger = Color(0xFFD93025);
 }
 
-const appRadius = 14.0;
+const appRadius = 20.0;
 
 ThemeData buildTheme() {
   final scheme = ColorScheme.fromSeed(seedColor: AppColors.primary).copyWith(
@@ -28,14 +29,13 @@ ThemeData buildTheme() {
     onTertiaryContainer: Colors.white,
     surface: Colors.white,
     onSurface: AppColors.foreground,
-    surfaceContainerLow: Colors.white,
+    surfaceContainerLow: AppColors.surface,
+    surfaceContainerHighest: AppColors.surface,
     outline: AppColors.border,
     outlineVariant: AppColors.border,
   );
-  final shape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(appRadius),
-    side: const BorderSide(color: AppColors.border, width: 0.8),
-  );
+  // The phang: nen xam rat nhat, khong vien (kieu ChatGPT/NotebookLM).
+  final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(appRadius));
   return ThemeData(
     colorScheme: scheme,
     useMaterial3: true,
@@ -44,13 +44,14 @@ ThemeData buildTheme() {
       backgroundColor: AppColors.background,
       foregroundColor: AppColors.foreground,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: TextStyle(color: AppColors.foreground, fontSize: 20, fontWeight: FontWeight.w800),
+      scrolledUnderElevation: 0,
+      titleTextStyle: TextStyle(color: AppColors.foreground, fontSize: 18, fontWeight: FontWeight.w700),
     ),
-    cardTheme: CardThemeData(color: Colors.white, elevation: 0, shape: shape, margin: EdgeInsets.zero),
+    cardTheme: CardThemeData(color: AppColors.surface, elevation: 0, shape: shape, margin: EdgeInsets.zero),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(48, 52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: const StadiumBorder(),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
@@ -59,19 +60,25 @@ ThemeData buildTheme() {
         minimumSize: const Size(48, 52),
         foregroundColor: AppColors.foreground,
         side: const BorderSide(color: AppColors.border),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: const StadiumBorder(),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
+      fillColor: AppColors.surface,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 1.2)),
     ),
-    chipTheme: ChipThemeData(
+    chipTheme: const ChipThemeData(
+      backgroundColor: AppColors.surface,
+      side: BorderSide.none,
+      shape: StadiumBorder(),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: Colors.white,
-      side: const BorderSide(color: AppColors.border),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      showDragHandle: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.white,

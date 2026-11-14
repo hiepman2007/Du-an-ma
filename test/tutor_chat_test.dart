@@ -87,7 +87,13 @@ void main() {
     expect(find.textContaining('Vì sao mình sai câu'), findsOneWidget);
     expect(find.text('Định luật Ôm'), findsOneWidget); // ngu canh o dau man
 
-    await tester.tap(find.text('Gợi mở'));
+    await tester.tap(find.byTooltip('Thêm'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chế độ Gợi mở'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(20, 20)); // dong bang menu
+    await tester.pumpAndSettle();
+    expect(find.text('Gợi mở'), findsOneWidget); // chip bat che do hien trong o nhap
     await _send(tester, 'Vì sao I giảm khi R tăng?');
     await tester.pumpAndSettle();
 

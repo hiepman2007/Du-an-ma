@@ -9,6 +9,14 @@ import '../../theme.dart';
 /// Ham goi lai khi nguoi hoc tra loi mot khoi co cham diem.
 typedef OnAnswered = void Function(bool correct, String chosen, String correctText);
 
+/// Che do hien thi phang (trong chat kieu ChatGPT): khoi noi dung khong vien, khong nhan in hoa.
+class BlockFlat extends InheritedWidget {
+  const BlockFlat({super.key, required super.child});
+  static bool of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<BlockFlat>() != null;
+  @override
+  bool updateShouldNotify(BlockFlat oldWidget) => false;
+}
+
 class BlockCard extends StatelessWidget {
   const BlockCard({super.key, required this.icon, required this.label, required this.child, this.title});
   final IconData icon;
@@ -19,6 +27,20 @@ class BlockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    if (BlockFlat.of(context)) {
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(20)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (title != null && title!.isNotEmpty) ...[
+            Text(title!, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 10),
+          ],
+          child,
+        ]),
+      );
+    }
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: Padding(

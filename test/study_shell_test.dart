@@ -39,7 +39,6 @@ void main() {
   testWidgets('Trang chủ: thống kê, linh vật, sổ học và thí nghiệm, không tràn', (tester) async {
     await _pump(tester, const Size(375, 812), home: const HomeScreen());
     expect(find.text('ngày liên tiếp'), findsOneWidget);
-    expect(find.text('7 ngày qua'), findsOneWidget);
     expect(find.text('Hỏi hoặc giao việc cho AI…'), findsOneWidget);
     expect(tester.takeException(), isNull);
     final notebook = find.byKey(const ValueKey('notebook-sample-dsa'));
@@ -82,6 +81,16 @@ void main() {
     await tester.tap(find.text('Tìm kiếm nhị phân').last);
     await tester.pumpAndSettle();
     expect(find.text('Học bài này'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Sổ học: một thanh tiêu đề, chip công cụ trên ô chat mở được lộ trình', (tester) async {
+    await _pump(tester, const Size(375, 812));
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.text('Gia sư AI'), findsNothing); // khong con thanh tieu de thu hai
+    await tester.tap(find.widgetWithText(ActionChip, 'Lộ trình'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tiến độ'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

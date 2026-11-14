@@ -10,6 +10,20 @@ class TextSectionBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (BlockFlat.of(context)) {
+      // Trong chat: doan van thuong nhu ChatGPT, khong khung.
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (block.title?.isNotEmpty == true) ...[
+            Text(block.title!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+          ],
+          RichContent(block.body ?? ''),
+          SourceNote(block: block),
+        ]),
+      );
+    }
     return BlockCard(
       icon: Icons.menu_book_outlined,
       label: 'Bài giảng',

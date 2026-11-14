@@ -248,6 +248,22 @@ class ImageCardBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final img = block.rawMap('image');
     if (img == null) return const SizedBox.shrink();
+    if (BlockFlat.of(context)) {
+      // Trong chat: anh bo goc tran ngang, chu thich nho ben duoi.
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          ClipRRect(borderRadius: BorderRadius.circular(20), child: _NetImage(url: '${img['url']}')),
+          const SizedBox(height: 6),
+          if (block.body?.isNotEmpty == true) RichContent(block.body!, style: const TextStyle(fontSize: 13.5, color: AppColors.muted)),
+          InkWell(
+            onTap: img['page_url'] == null ? null : () => launchUrl(Uri.parse('${img['page_url']}'), mode: LaunchMode.externalApplication),
+            child: Text('Ảnh: ${img['author']} · ${img['license']} · Wikimedia Commons',
+                style: const TextStyle(fontSize: 11, color: AppColors.muted, decoration: TextDecoration.underline)),
+          ),
+        ]),
+      );
+    }
     return BlockCard(
       icon: Icons.image_outlined,
       label: 'Hình ảnh minh họa',

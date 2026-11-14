@@ -71,8 +71,9 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Gia sư AI'), findsWidgets);
     expect(find.text('Đỉnh parabol nằm ở đâu?'), findsOneWidget);
-    expect(find.text('Code minh họa'.toUpperCase()), findsOneWidget);
-    expect(find.text('Khám phá hàm số'.toUpperCase()), findsOneWidget);
+    // Trong chat cac khoi hien phang kieu ChatGPT: khong con nhan in hoa tren moi khoi.
+    expect(find.text('Code minh họa'.toUpperCase()), findsNothing);
+    expect(find.text('Bài giảng'.toUpperCase()), findsNothing);
 
     // Tra loi cau dung/sai trong chat khong lam hong man hinh.
     await tester.dragUntilVisible(find.text('Đúng'), find.byType(ListView).first, const Offset(0, -250));

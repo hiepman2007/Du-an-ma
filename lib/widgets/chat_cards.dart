@@ -32,9 +32,8 @@ class IntentCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: 8, bottom: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       padding: const EdgeInsets.all(12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
