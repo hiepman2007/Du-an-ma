@@ -81,7 +81,7 @@ Yêu cầu kỹ thuật BẮT BUỘC:
 - Một thẻ số đo cập nhật theo thời gian thực (2-4 đại lượng có đơn vị) và một dòng "Điều đang xảy ra: …" đổi theo trạng thái/giá trị thanh trượt.
 - Nền trắng, chữ #262626, màu nhấn đỏ #D01628, phông hệ thống (system-ui), cỡ chữ ≥ 14px; body margin 0, padding 12px.
 - Tính toán theo đúng công thức/quy luật khoa học; giá trị khởi đầu hợp lý để vừa mở đã thấy hiện tượng.
-- Dưới 15.000 ký tự, chạy được ngay khi mở, không lỗi JavaScript.
+- Mã gọn: dưới 9.000 ký tự, chạy được ngay khi mở, không lỗi JavaScript.
 title ngắn; instructions 1-3 câu hướng dẫn học sinh tự thử nghiệm điều gì (instructions được phép dùng LaTeX $...$).
 Bên trong HTML KHÔNG dùng LaTeX (không có thư viện hiển thị); viết công thức bằng ký hiệu Unicode (x², √x, Ω, π, H₂O).
 ${LANG_RULE}`;
