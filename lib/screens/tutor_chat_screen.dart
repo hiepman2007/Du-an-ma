@@ -152,7 +152,7 @@ class _TutorChatState extends State<TutorChat> {
     _toBottom();
     final before = _thread.messages.length;
     try {
-      await s.sendChat(course, _thread, q, web: _web ?? course.allowWeb, socratic: _socratic);
+      await s.sendChat(course, _thread, q, web: _web, socratic: _socratic);
       if (mounted && _thread.messages.length > before && !_thread.messages.last.fromUser) _fresh = _thread.messages.last;
     } catch (error) {
       if (mounted) {
@@ -168,7 +168,7 @@ class _TutorChatState extends State<TutorChat> {
     final s = context.read<AppState>();
     setState(() => _error = null);
     try {
-      await s.regenerateChat(course, _thread, web: _web ?? course.allowWeb, socratic: _socratic);
+      await s.regenerateChat(course, _thread, web: _web, socratic: _socratic);
       if (mounted && _thread.messages.isNotEmpty && !_thread.messages.last.fromUser) _fresh = _thread.messages.last;
     } catch (error) {
       if (mounted) _error = _message(error);
@@ -299,7 +299,7 @@ class _TutorChatState extends State<TutorChat> {
                 secondary: const Icon(Icons.public),
                 title: const Text('Tra cứu web'),
                 subtitle: const Text('Tắt: chỉ trả lời từ nguồn của bạn'),
-                value: _web ?? course.allowWeb,
+                value: _web ?? (course.allowWeb || course.enabledSources.isEmpty),
                 onChanged: (v) {
                   set(() {});
                   setState(() => _web = v);
@@ -376,7 +376,7 @@ class _TutorChatState extends State<TutorChat> {
     final contextLesson = lesson ?? Lesson(id: course.id, title: course.title);
     final lastAnswer = msgs.lastIndexWhere((m) => !m.fromUser);
     final lastQuestion = msgs.lastIndexWhere((m) => m.fromUser);
-    final web = _web ?? course.allowWeb;
+    final web = _web ?? (course.allowWeb || course.enabledSources.isEmpty);
 
     final embedded = widget.controller != null;
     return Scaffold(

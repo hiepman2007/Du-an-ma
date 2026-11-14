@@ -107,6 +107,11 @@ void main() {
     expect(detectIntent('cho mình làm thí nghiệm khúc xạ'), ChatIntent.lab);
     expect(detectIntent('vì sao trời xanh'), ChatIntent.none);
     expect(detectIntent('Quang hợp diễn ra thế nào?'), ChatIntent.none);
+    expect(detectIntent('tài liệu mac le nin'), ChatIntent.research);
+    expect(detectIntent('Tìm nguồn và lên lộ trình cho môn Xác suất'), ChatIntent.plan);
+    expect(wantsWeb('tra mạng đi'), isTrue);
+    expect(wantsWeb('tìm trên mạng giúp mình'), isTrue);
+    expect(wantsWeb('giải thích định luật Ohm'), isFalse);
   });
 
   testWidgets('Ghép nhanh: ghép đúng hết thì ghi kỷ lục', (tester) async {

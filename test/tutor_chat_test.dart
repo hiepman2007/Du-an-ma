@@ -24,6 +24,10 @@ class _Api extends ApiClient {
   Completer<void>? gate;
   int answers = 0;
 
+  // So trong test chua co tai lieu nen chat tu tra web; dung chung cau tra loi gia.
+  @override
+  Future<Map<String, dynamic>> ask(Map<String, dynamic> body) => studyAsk(body);
+
   @override
   Future<Map<String, dynamic>> studyAsk(Map<String, dynamic> body) async {
     bodies.add(body);

@@ -27,6 +27,7 @@ class IntentCard extends StatelessWidget {
       ChatIntent.flashcards => (Icons.style_outlined, 'Thẻ ghi nhớ', 'Lật thẻ để tự kiểm tra các khái niệm chính.'),
       ChatIntent.summary => (Icons.lightbulb_outline, 'Tóm tắt', 'Bản tóm tắt có trích nguồn, lưu vào Studio.'),
       ChatIntent.test => (Icons.timer_outlined, 'Thi thử', 'Làm bài có đếm giờ như thi thật.'),
+      ChatIntent.research => (Icons.travel_explore, 'Tìm nguồn trên mạng', 'Tìm tài liệu uy tín rồi thêm vào sổ để gia sư bám theo.'),
       _ => (Icons.science_outlined, 'Phòng thí nghiệm ảo', 'Các thí nghiệm dựng sẵn, chạy cả khi không có mạng.'),
     };
     return Container(
@@ -84,6 +85,12 @@ class IntentCard extends StatelessWidget {
           ],
         ChatIntent.test => [
             FilledButton(onPressed: () => openStudyPage(context, course, StudyPage.test), child: const Text('Vào thi thử')),
+          ],
+        ChatIntent.research => [
+            FilledButton.icon(
+                onPressed: () => openStudyPage(context, course, StudyPage.research),
+                icon: const Icon(Icons.travel_explore, size: 18),
+                label: const Text('Tìm nguồn')),
           ],
         _ => [
             OutlinedButton.icon(

@@ -36,8 +36,10 @@ test('repairLatex sua ky tu dieu khien trong cong thuc', () => {
   assert.equal(fixed.d.source, 'a' + TAB + 'b'); // code giu nguyen
 });
 
-test('pham vi nguon kieu NotebookLM: mac dinh chi dung nguon da nap', () => {
-  assert.ok(askSystem('student', { web: false, hasSources: true }).includes('CHỈ dựa vào các NGUỒN NGƯỜI HỌC ĐÃ NẠP'));
+test('pham vi nguon: uu tien nguon da nap, thieu thi van tra loi va ghi ro ngoai tai lieu', () => {
+  assert.ok(askSystem('student', { web: false, hasSources: true }).includes('ƯU TIÊN các NGUỒN NGƯỜI HỌC ĐÃ NẠP'));
+  assert.ok(askSystem('student', { web: false, hasSources: true }).includes('ngoài tài liệu của bạn'));
+  assert.ok(askSystem('student', { web: false, hasSources: false }).includes('Không đòi người học gửi giáo trình'));
   assert.ok(askSystem('student', { web: true }).includes('TRA CỨU TRÊN WEB'));
 });
 

@@ -55,7 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
         await state.createNotebook(prompt: text);
         if (mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) => const NotebookScreen(initialTab: NotebookTab.studio)));
       } else {
-        final course = state.selectedCourse ?? await state.createNotebook(title: _titleFrom(text));
+        // Moi cau hoi tu trang chu mo mot so moi dat ten theo cau hoi (nhu mot cuoc tro chuyen moi cua ChatGPT).
+        final course = await state.createNotebook(title: _titleFrom(text));
         if (mounted) await _openNotebook(course, question: text);
       }
       _input.clear();

@@ -104,14 +104,16 @@ export const SOURCES_SYSTEM = `Bạn tìm tài liệu học tập uy tín trên 
 
 // Gia su hoi dap kieu ChatGPT (Intelligent UI): moi cau tra loi la chuoi khoi, AI tu chon hinh thuc hien thi.
 // Pham vi nguon kieu NotebookLM: mac dinh chi dung nguon da nap; bat tra cuu web thi duoc dung them nguon web.
+const NO_SOURCE_HELP = 'Không đòi người học gửi giáo trình, không hỏi lại khi có thể đoán ý; nếu câu hỏi quá rộng hoặc ngắn (ví dụ "toàn bộ", "tài liệu môn X"), hãy đưa ra nội dung tổng quan có cấu trúc ngay (các phần chính, ý cốt lõi; nếu hỏi tài liệu thì liệt kê các giáo trình, nguồn uy tín tìm được kèm link) rồi gợi ý một câu để đào sâu.';
+
 function scopeRule({ web, hasSources }) {
   if (web) {
-    return `PHẠM VI NGUỒN: được dùng NGUỒN CỦA KHÓA HỌC và THÔNG TIN TRA CỨU TRÊN WEB. Ưu tiên nguồn của khóa học; phần lấy từ web phải nói rõ (ví dụ "Theo [W1] …" hoặc "Theo Wikipedia …"), ghi source_url là link web đã tra. Chỉ dùng web uy tín, không bịa link.`;
+    return `PHẠM VI NGUỒN: được dùng ${hasSources ? 'NGUỒN CỦA KHÓA HỌC và ' : ''}THÔNG TIN TRA CỨU TRÊN WEB, cùng kiến thức chuẩn. ${hasSources ? 'Ưu tiên nguồn của khóa học; ' : ''}phần lấy từ web phải nói rõ (ví dụ "Theo [W1] …" hoặc "Theo Wikipedia …"), ghi source_url là link web đã tra. Chỉ dùng web uy tín, không bịa link. Trả lời ĐẦY ĐỦ và hữu ích như ChatGPT. ${hasSources ? '' : NO_SOURCE_HELP}`;
   }
   if (hasSources) {
-    return `PHẠM VI NGUỒN: CHỈ dựa vào các NGUỒN NGƯỜI HỌC ĐÃ NẠP (file, văn bản, nguồn web đã chọn) — giống NotebookLM. Không dùng kiến thức bên ngoài để bổ sung dữ kiện. Nếu nguồn không có thông tin để trả lời, nói rõ "Tài liệu của bạn chưa đề cập đến …", tóm tắt phần liên quan nhất mà nguồn có, và gợi ý người học bật "Tra cứu web". Mỗi ý quan trọng nên có source_quote/source_page từ nguồn.`;
+    return `PHẠM VI NGUỒN: ƯU TIÊN các NGUỒN NGƯỜI HỌC ĐÃ NẠP (giống NotebookLM), ý lấy từ nguồn có source_quote/source_page. Nếu nguồn không đủ để trả lời, VẪN trả lời đầy đủ bằng kiến thức chuẩn (như ChatGPT) và ghi rõ một lần "Phần này ngoài tài liệu của bạn"; không từ chối, không bắt người học bật tra cứu web.`;
   }
-  return 'PHẠM VI NGUỒN: chưa có tài liệu; trả lời bằng kiến thức chuẩn, ngắn gọn, nói rõ đây là kiến thức chung.';
+  return `PHẠM VI NGUỒN: chưa có tài liệu. Trả lời ĐẦY ĐỦ và hữu ích bằng kiến thức chuẩn như ChatGPT. ${NO_SOURCE_HELP}`;
 }
 
 export const SOCRATIC_RULE = 'CHẾ ĐỘ GỢI MỞ: KHÔNG đưa đáp án cuối cùng hay lời giải trọn vẹn. Trong text_section, chỉ ra người học đang ở đâu, gợi ý bước tiếp theo hoặc khái niệm cần dùng, rồi kết thúc bằng 1 câu hỏi để người học tự trả lời. Không dùng step_solver giải hết. Nếu người học đã trả lời đúng thì xác nhận và gợi ý bước kế.';
@@ -119,10 +121,10 @@ export const SOCRATIC_RULE = 'CHẾ ĐỘ GỢI MỞ: KHÔNG đưa đáp án cu�
 export function askSystem(role, { web = false, hasSources = true, socratic = false } = {}) {
   return `Bạn là GIA SƯ AI trong ứng dụng học tập trên điện thoại. ${roleStyle(role)}${socratic ? `\n${SOCRATIC_RULE}` : ''}
 Trả lời câu hỏi của người học bằng 1-4 KHỐI, tự chọn hình thức hiển thị giúp hiểu nhanh nhất (giống câu trả lời có giao diện tương tác):
-- Luôn mở đầu bằng 1 text_section ngắn (40-150 từ) trả lời thẳng vào câu hỏi, có công thức LaTeX nếu cần.
-- Thêm khối minh họa khi giúp hiểu rõ hơn: image_card (ảnh thật về vật/hiện tượng), phenomenon_sim / function_graph / formula_lab / motion_sim / reaction_lab (khi người học muốn thử nghiệm, xem hiện tượng, thay đổi số liệu), step_solver (bài tính toán), concept_map (so sánh, hệ thống khái niệm), code_demo (lập trình), chem_formula.
+- Trả lời như ChatGPT: phần lớn chỉ cần 1 text_section viết tự nhiên, đủ ý (đề mục ngắn, gạch đầu dòng, công thức LaTeX khi cần). Thứ tự các khối tùy nội dung.
+- Chỉ thêm khối minh họa khi thật sự giúp hiểu rõ hơn chữ: image_card (ảnh thật về vật/hiện tượng), phenomenon_sim / function_graph / formula_lab / motion_sim / reaction_lab (khi người học muốn thử nghiệm, xem hiện tượng, thay đổi số liệu), step_solver (bài tính toán), concept_map (so sánh, hệ thống khái niệm), code_demo (lập trình), chem_formula.
 - Nếu người học nhờ "kiểm tra", thêm 1 câu mcq hoặc true_false.
-- Câu hỏi đơn giản thì chỉ cần 1 text_section. Không lặp lại câu hỏi. Không bịa.
+- Câu hỏi đơn giản thì chỉ cần 1 text_section. Không lặp lại câu hỏi. Không bịa. Không nói "tôi không thể tra cứu web": nếu được cấp kết quả tra cứu thì dùng, nếu không thì trả lời bằng kiến thức chuẩn.
 ${scopeRule({ web, hasSources })}
 ${CATALOG}
 ${FAITHFUL_RULE}

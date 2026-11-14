@@ -760,7 +760,10 @@ class AppState extends ChangeNotifier {
   /// [web]: cho tra cuu them tren mang (mac dinh theo cai dat cua khoa). [socratic]: che do Goi mo.
   Future<void> sendChat(Course course, ChatThread thread, String question, {bool? web, bool socratic = false}) async {
     if (isThreadBusy(thread)) return;
-    final useWeb = web ?? course.allowWeb;
+    // Tra web khi nguoi hoc bat, khi cau hoi xin tra mang, hoac khi so chua co tai lieu nao (khong co gi de bam vao).
+    final useWeb = wantsWeb(question) || (web ?? (course.allowWeb || course.enabledSources.isEmpty));
+    // So moi chua dat ten: lay cau hoi dau tien lam ten (nhu ChatGPT).
+    if (course.title == 'Sổ học tập mới' && course.lessons.isEmpty && !course.isSample) course.title = ChatThread.titleFor(question);
     final lesson = course.lessonById(thread.lessonId);
     final history = thread.messages.takeLast(8).map((m) => {'from': m.fromUser ? 'user' : 'tutor', 'text': m.plainText}).toList();
     final userMsg = ChatMessage(fromUser: true, text: question, webMode: useWeb ? 'requested' : 'off');
