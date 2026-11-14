@@ -60,7 +60,7 @@ Học qua mô phỏng có hiệu quả lớn (g = 0,85, tổng hợp 145 nghiên
 Kịch bản demo: hỏi "Quang hợp diễn ra thế nào?" → câu trả lời kèm mô phỏng chiếc lá → gõ "lập lộ trình ôn Sinh 2 tuần" → làm quiz → tắt hẳn app, mở lại, dữ liệu vẫn còn.
 
 ### 6. Đội ngũ
-Nhóm [Tên đội]: [Họ tên, vai trò, kinh nghiệm của từng thành viên].
+Nhóm DUANMA gồm ba thành viên: Nguyễn Văn Khánh Duy, Mẫn Đức Hiệp và Ngô Tiến Thành.
 
 ### Nguồn số liệu
 - Mann, S. & Robinson, A. (2009). Boredom in the lecture theatre. *British Educational Research Journal*, 35(2), 243-258.
