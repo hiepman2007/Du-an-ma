@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../models/models.dart';
+import '../services/net_image.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
 
@@ -36,7 +37,11 @@ class _LessonImageState extends State<LessonImage> {
     return Container(
       color: color,
       alignment: Alignment.center,
-      child: Icon(Icons.auto_stories_outlined, size: widget.aspect == null ? widget.size * 0.42 : 34, color: AppColors.primary.withValues(alpha: 0.7)),
+      child: Icon(
+        Icons.auto_stories_outlined,
+        size: widget.aspect == null ? widget.size * 0.42 : 34,
+        color: AppColors.primary.withValues(alpha: 0.7),
+      ),
     );
   }
 
@@ -47,8 +52,13 @@ class _LessonImageState extends State<LessonImage> {
       builder: (_, snap) {
         final url = snap.data;
         if (url == null) return _placeholder();
-        return Image.network(url, fit: BoxFit.cover, errorBuilder: (_, _, _) => _placeholder(),
-            frameBuilder: (_, child, frame, sync) => sync || frame != null ? child : _placeholder());
+        return Image.network(
+          url,
+          headers: imageHeaders,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _placeholder(),
+          frameBuilder: (_, child, frame, sync) => sync || frame != null ? child : _placeholder(),
+        );
       },
     );
     final clipped = ClipRRect(borderRadius: BorderRadius.circular(widget.radius), child: image);
