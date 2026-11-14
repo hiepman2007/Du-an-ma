@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hoc_thong_minh/data/study_samples.dart';
 import 'package:hoc_thong_minh/models/models.dart';
-import 'package:hoc_thong_minh/screens/home_shell.dart';
+import 'package:hoc_thong_minh/screens/home_screen.dart';
 import 'package:hoc_thong_minh/services/api_client.dart';
 import 'package:hoc_thong_minh/services/storage.dart';
 import 'package:hoc_thong_minh/state/app_state.dart';
@@ -121,9 +121,9 @@ void main() {
     final state = AppState(api: api, storage: _Store());
     await state.load();
     await tester.pumpWidget(ChangeNotifierProvider.value(value: state,
-      child: MaterialApp(theme: buildTheme(), home: const HomeShell())));
-    await tester.enterText(find.byType(TextField), 'Tìm nguồn và lên lộ trình cho môn Xác suất');
-    await tester.tap(find.widgetWithText(FilledButton, 'Bắt đầu'));
+      child: MaterialApp(theme: buildTheme(), home: const HomeScreen())));
+    await tester.enterText(find.byType(TextField).first, 'Tìm nguồn và lên lộ trình cho môn Xác suất');
+    await tester.tap(find.byTooltip('Gửi'));
     await tester.pumpAndSettle();
     expect(find.text('Mục tiêu học của bạn'), findsOneWidget);
     expect(find.text('Xác suất'), findsOneWidget);

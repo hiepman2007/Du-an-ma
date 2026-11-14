@@ -8,6 +8,7 @@ import '../data/sample_course.dart';
 import '../data/study_samples.dart';
 import '../models/models.dart';
 import '../services/api_client.dart';
+import '../services/intent.dart';
 import '../services/storage.dart';
 import '../services/study_account.dart';
 import '../services/topic_images.dart';
@@ -50,6 +51,38 @@ class AppState extends ChangeNotifier {
   List<Map<String, dynamic>> _guestCourses = [];
   final Set<String> _busy = {};
   String? openingPrompt;
+
+  /// So hoat dong hoc moi ngay (yyyy-mm-dd -> diem): tra loi cau hoi, hoi gia su, lam quiz, chay thi nghiem.
+  final Map<String, int> activity = {};
+  static const dailyGoal = 10;
+
+  static String dayKey(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  int get todayActivity => activity[dayKey(DateTime.now())] ?? 0;
+
+  /// So ngay hoc lien tiep, tinh den hom nay (hoac hom qua neu hom nay chua hoc).
+  int get streak {
+    var day = DateTime.now();
+    if ((activity[dayKey(day)] ?? 0) == 0) day = day.subtract(const Duration(days: 1));
+    var n = 0;
+    while ((activity[dayKey(day)] ?? 0) > 0) {
+      n++;
+      day = day.subtract(const Duration(days: 1));
+    }
+    return n;
+  }
+
+  void _bumpActivity([int points = 1]) {
+    final key = dayKey(DateTime.now());
+    activity[key] = (activity[key] ?? 0) + points;
+  }
+
+  /// Ghi nhan hoat dong ngoai luong AI (vd chay mo phong) va luu lai.
+  Future<void> logActivity([int points = 1]) async {
+    _bumpActivity(points);
+    notifyListeners();
+    await _save();
+  }
   bool openSourcesFirst = false;
 
   bool loaded = false;
@@ -106,6 +139,12 @@ class AppState extends ChangeNotifier {
   void _restore(Map<String, dynamic> data) {
     role = UserRole.fromId(data['role']);
     selectedCourseId = data['selected_course_id'] as String?;
+    activity
+      ..clear()
+      ..addAll({
+        for (final e in ((data['activity'] as Map?) ?? {}).entries)
+          if (e.value is num) '${e.key}': (e.value as num).toInt(),
+      });
     courses
       ..clear()
       ..addAll(_mapsFrom(data['courses']).map((e) {
@@ -118,7 +157,7 @@ class AppState extends ChangeNotifier {
   }
 
   Map<String, dynamic> _snapshot() => {
-    'role': role?.id, 'selected_course_id': selectedCourseId,
+    'role': role?.id, 'selected_course_id': selectedCourseId, 'activity': activity,
     'courses': courses.map((c) => c.toJson()).toList(),
   };
 
@@ -482,6 +521,7 @@ class AppState extends ChangeNotifier {
     if (!courses.contains(course) || !course.artifacts.contains(artifact)) return;
     if (artifact.attempts.any((a) => a.id == attempt.id)) return;
     artifact.attempts.add(attempt);
+    _bumpActivity(3);
     final lesson = artifact.lessonId == null ? null : course.lessons.where((l) => l.id == artifact.lessonId).firstOrNull;
     if (lesson != null) {
       lesson.quizCorrect = attempt.score;
@@ -716,8 +756,13 @@ class AppState extends ChangeNotifier {
         blocks: answer,
         web: ((out['web'] as List?) ?? []).whereType<Map>().map((e) => WebSource.fromJson(Map<String, dynamic>.from(e))).toList(),
         webMode: out['webMode'] ?? 'off',
+        intent: (() {
+          final local = detectIntent(question);
+          return local != ChatIntent.none ? local.id : ChatIntent.fromId(out['intent']).id;
+        })(),
       ));
       thread.updatedAt = DateTime.now();
+      _bumpActivity();
     } catch (_) {
       if (_threadRuns[thread.id] != run) return;
       thread.messages.remove(userMsg);
@@ -805,6 +850,7 @@ class AppState extends ChangeNotifier {
   Future<void> recordResult(Lesson lesson, int blockIndex, bool correct) async {
     if (lesson.results.containsKey(blockIndex)) return;
     lesson.results[blockIndex] = correct;
+    _bumpActivity();
     notifyListeners();
     await _save();
   }

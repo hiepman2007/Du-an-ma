@@ -30,6 +30,7 @@ void main() {
         expect(tester.takeException(), isNull);
       }
       for (final option in scene.options.skip(1)) {
+        await tester.ensureVisible(find.text(option.$2));
         await tester.tap(find.text(option.$2));
         await tester.pump(const Duration(milliseconds: 50));
       }

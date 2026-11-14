@@ -8,6 +8,7 @@ import '../models/models.dart';
 import '../services/api_client.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
+import '../widgets/chat_cards.dart';
 import '../widgets/blocks/block_renderer.dart';
 import '../widgets/motion.dart';
 import '../widgets/source_widgets.dart';
@@ -422,6 +423,8 @@ class _TutorChatState extends State<TutorChat> {
                       return _TutorAnswer(
                         key: ObjectKey(m),
                         message: m,
+                        question: i > 0 && msgs[i - 1].fromUser ? msgs[i - 1].text : '',
+                        onAsk: busy ? null : _send,
                         course: course,
                         lesson: contextLesson,
                         animate: identical(m, _fresh) && !reduceMotion(context),
@@ -744,6 +747,8 @@ class _TutorAnswer extends StatefulWidget {
   const _TutorAnswer({
     super.key,
     required this.message,
+    this.question = '',
+    this.onAsk,
     required this.course,
     required this.lesson,
     required this.animate,
@@ -752,6 +757,8 @@ class _TutorAnswer extends StatefulWidget {
     this.onSaveNote,
   });
   final ChatMessage message;
+  final String question;
+  final ValueChanged<String>? onAsk;
   final Course course;
   final Lesson lesson;
   final bool animate;
@@ -836,6 +843,7 @@ class _TutorAnswerState extends State<_TutorAnswer> with SingleTickerProviderSta
                   if (b.sourceId != null && done) StudyCitation(course: widget.course, block: b),
                 ],
               if (done && m.web.isNotEmpty) _WebSources(sources: m.web),
+              if (done) IntentCard(course: widget.course, message: m, question: widget.question, onAsk: widget.onAsk),
               if (done)
                 Row(children: [
                   _MiniAction(icon: Icons.copy, tooltip: 'Sao chép', onTap: widget.onCopy),

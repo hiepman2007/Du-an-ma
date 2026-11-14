@@ -768,7 +768,7 @@ class Course {
 /// Mot tin nhan trong cuoc hoi dap voi gia su AI.
 /// Tin cua nguoi hoc: chi co [text]. Tin cua gia su: chuoi khoi [blocks] (hien bang BlockRenderer).
 class ChatMessage {
-  ChatMessage({required this.fromUser, this.text = '', this.blocks = const [], this.web = const [], this.webMode = 'off', DateTime? at})
+  ChatMessage({required this.fromUser, this.text = '', this.blocks = const [], this.web = const [], this.webMode = 'off', this.intent = 'none', DateTime? at})
       : at = at ?? DateTime.now();
   final bool fromUser;
   final String text;
@@ -781,6 +781,9 @@ class ChatMessage {
   /// 'off' (chi nguon da nap), 'search' (cong cu tim kiem cua AI), 'wikipedia' (du phong), 'requested' (tin nguoi hoc co bat web).
   final String webMode;
 
+  /// Y dinh nguoi hoc ma cau tra loi phuc vu (plan, quiz, lab...): app hien the dieu huong duoi cau tra loi.
+  final String intent;
+
   /// Phan chu de gui lai lam ngu canh (tom tat cau tra loi cua gia su).
   String get plainText => fromUser
       ? text
@@ -792,10 +795,12 @@ class ChatMessage {
         blocks: Block.parseList(j['blocks']),
         web: ((j['web'] as List?) ?? []).whereType<Map>().map((e) => WebSource.fromJson(Map<String, dynamic>.from(e))).toList(),
         webMode: j['webMode'] ?? 'off',
+        intent: j['intent'] ?? 'none',
         at: DateTime.tryParse(j['at'] ?? ''),
       );
   Map<String, dynamic> toJson() => {
         'from': fromUser ? 'user' : 'tutor',
+        if (intent != 'none') 'intent': intent,
         'text': text,
         'blocks': blocks.map((b) => b.toJson()).toList(),
         'web': web.map((w) => w.toJson()).toList(),

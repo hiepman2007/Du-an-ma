@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
-import 'screens/home_shell.dart';
+import 'screens/home_screen.dart';
 import 'screens/study_account_screen.dart';
 import 'services/study_account.dart';
 import 'state/app_state.dart';
@@ -57,8 +57,8 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
     final s = context.watch<AppState>();
     if (!s.loaded) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     final account = s.account;
-    if (account == null) return const HomeShell();
+    if (account == null) return const HomeScreen();
     return ListenableBuilder(listenable: account, builder: (_, _) =>
-      account.recoveryPending ? const StudyAccountScreen() : const HomeShell());
+      account.recoveryPending ? const StudyAccountScreen() : const HomeScreen());
   }
 }

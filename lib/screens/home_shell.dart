@@ -3,126 +3,141 @@ import 'package:provider/provider.dart';
 
 import '../data/study_samples.dart';
 import '../models/models.dart';
+import '../services/intent.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
-import '../widgets/source_widgets.dart';
-import 'review_screen.dart';
+import 'lab_screen.dart';
 import 'study_account_screen.dart';
 import 'study_actions.dart';
 import 'study_pages.dart';
 import 'tutor_chat_screen.dart';
 
-/// Cac trang cua mot so hoc tap (thanh ben kieu StudyFetch).
+/// Cac trang chuc nang cua mot so hoc tap (mo tu o Studio hoac tu the trong chat).
 enum StudyPage {
   dashboard('Tổng quan', Icons.space_dashboard_outlined),
-  plan('Lộ trình', Icons.map_outlined),
+  plan('Lộ trình', Icons.route_outlined),
   chat('Hỏi đáp', Icons.chat_bubble_outline),
   research('Nghiên cứu', Icons.travel_explore),
-  quiz('Quiz', Icons.checklist_rtl),
+  lab('Phòng thí nghiệm', Icons.science_outlined),
+  quiz('Quiz', Icons.quiz_outlined),
   test('Thi thử', Icons.timer_outlined),
   flashcards('Thẻ ghi nhớ', Icons.style_outlined),
-  arcade('Trò chơi', Icons.sports_esports_outlined),
+  arcade('Ghép nhanh', Icons.sports_esports_outlined),
   explainers('Tóm tắt & giải thích', Icons.lightbulb_outline),
-  miniApps('Mini app', Icons.widgets_outlined),
+  miniApps('Canvas AI', Icons.widgets_outlined),
   materials('Tài liệu', Icons.folder_outlined);
 
   const StudyPage(this.label, this.icon);
   final String label;
   final IconData icon;
-
-  static const main = [dashboard, plan, chat, research];
-  static const practice = [quiz, test, flashcards, arcade, explainers, miniApps];
 }
 
-class HomeShell extends StatefulWidget {
-  const HomeShell({super.key});
+/// Mo mot trang chuc nang thanh man rieng (co nut quay lai).
+Future<void> openStudyPage(
+  BuildContext context,
+  Course course,
+  StudyPage page,
+) {
+  if (page == StudyPage.chat) {
+    return Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => TutorChatScreen(courseId: course.id)),
+    );
+  }
+  if (page == StudyPage.lab) {
+    return Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => LabScreen(courseId: course.id)),
+    );
+  }
+  return Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (ctx) {
+        void go(StudyPage p) => openStudyPage(ctx, course, p);
+        final body = switch (page) {
+          StudyPage.dashboard => DashboardPage(course: course, onNavigate: go),
+          StudyPage.plan => StudyPlanPage(course: course, onNavigate: go),
+          StudyPage.research => ResearchPage(course: course, onNavigate: go),
+          StudyPage.materials => MaterialsPage(course: course),
+          _ => PracticePage(
+            key: ValueKey(page),
+            course: course,
+            page: page,
+            onNavigate: go,
+          ),
+        };
+        return Scaffold(
+          appBar: AppBar(title: Text(page.label)),
+          body: SafeArea(top: false, child: body),
+        );
+      },
+    ),
+  );
+}
+
+enum NotebookTab {
+  sources('Nguồn', Icons.folder_outlined),
+  chat('Chat', Icons.chat_bubble_outline),
+  studio('Studio', Icons.auto_awesome_mosaic_outlined);
+
+  const NotebookTab(this.label, this.icon);
+  final String label;
+  final IconData icon;
+}
+
+/// So hoc tap kieu NotebookLM: Nguon | Chat | Studio. Dien thoai: tab duoi day; man rong: 3 cot.
+class NotebookScreen extends StatefulWidget {
+  const NotebookScreen({
+    super.key,
+    this.initialTab = NotebookTab.chat,
+    this.initialQuestion,
+  });
+  final NotebookTab initialTab;
+  final String? initialQuestion;
 
   @override
-  State<HomeShell> createState() => _HomeShellState();
+  State<NotebookScreen> createState() => _NotebookScreenState();
 }
 
-class _HomeShellState extends State<HomeShell> {
-  StudyPage _page = StudyPage.dashboard;
+class _NotebookScreenState extends State<NotebookScreen> {
+  late NotebookTab _tab = widget.initialTab;
   String? _courseId;
 
-  void _go(StudyPage page) => setState(() => _page = page);
-
-  /// Khi doi so: so moi mo tu chu de -> hoi muc tieu va lap lo trinh; so tao tu tai lieu -> trang Tai lieu.
+  /// So moi mo tu chu de -> hoi muc tieu va lap lo trinh; so tao tu tai lieu -> tab Nguon.
   void _onCourse(AppState state, Course course) {
     if (_courseId == course.id) return;
     _courseId = course.id;
-    _page = StudyPage.dashboard;
     if (state.openSourcesFirst) {
       state.openSourcesFirst = false;
-      _page = StudyPage.materials;
+      _tab = NotebookTab.sources;
     }
     final prompt = state.openingPrompt;
     if (prompt != null) {
       state.openingPrompt = null;
-      _page = StudyPage.plan;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) StudyActions.plan(context, course, topic: StudyActions.topicFrom(prompt));
-      });
+      _tab = NotebookTab.studio;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _plan(course, prompt),
+      );
     }
+  }
+
+  Future<void> _plan(Course course, String prompt) async {
+    if (!mounted) return;
+    final ok = await StudyActions.plan(
+      context,
+      course,
+      topic: StudyActions.topicFrom(prompt),
+    );
+    if (ok && mounted) openStudyPage(context, course, StudyPage.plan);
   }
 
   Future<bool> _intercept(Course course, String question) async {
-    if (!StudyActions.wantsPlan(course, question)) return false;
-    _go(StudyPage.plan);
-    await StudyActions.plan(context, course, topic: StudyActions.topicFrom(question));
-    return true;
-  }
-
-  void _assistant(Course course) {
-    final state = context.read<AppState>();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheet) => FractionallySizedBox(
-        heightFactor: 0.94,
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          child: TutorChat(
-            courseId: course.id,
-            onClose: () => Navigator.pop(sheet),
-            onSaveNote: (m) => state.saveChatNote(course, m),
-            onIntercept: (q) async {
-              if (!StudyActions.wantsPlan(course, q)) return false;
-              Navigator.pop(sheet);
-              return _intercept(course, q);
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _upload(Course course) async {
-    final state = context.read<AppState>();
-    final messenger = ScaffoldMessenger.of(context);
-    final drafts = await showModalBottomSheet<List<SourceDraft>>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheet) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const SectionHeader(eyebrow: 'Tải lên', title: 'Thêm tài liệu vào sổ'),
-            SourceAddBar(onAdd: (d) => Navigator.pop(sheet, d)),
-          ]),
-        ),
-      ),
-    );
-    if (drafts == null || drafts.isEmpty || !mounted) return;
-    _go(StudyPage.materials);
-    try {
-      await state.addSources(course, drafts);
-      messenger.showSnackBar(SnackBar(content: Text('Đã thêm ${drafts.length} tài liệu.')));
-    } catch (_) {
-      messenger.showSnackBar(const SnackBar(content: Text('Chưa tải lên được. Hãy kiểm tra kết nối rồi thử lại.')));
+    if (detectIntent(question) != ChatIntent.plan || course.lessons.isNotEmpty) {
+      return false;
     }
+    await _plan(course, question);
+    return true;
   }
 
   void _library(AppState state) {
@@ -132,304 +147,327 @@ class _HomeShellState extends State<HomeShell> {
       isScrollControlled: true,
       builder: (sheet) => SafeArea(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(sheet).size.height * 0.8),
-          child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
-            const ListTile(title: Text('Sổ học tập', style: TextStyle(fontWeight: FontWeight.w800))),
-            ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text('Tạo sổ mới'),
-              onTap: () {
-                Navigator.pop(sheet);
-                state.createNotebook();
-              },
-            ),
-            for (final course in state.courses)
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheet).size.height * 0.8,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              const ListTile(
+                title: Text(
+                  'Sổ học tập',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
               ListTile(
-                leading: Icon(course.isSample ? Icons.auto_stories_outlined : Icons.book_outlined),
-                selected: state.selectedCourseId == course.id,
-                title: Text(course.title),
+                leading: const Icon(Icons.add),
+                title: const Text('Tạo sổ mới'),
                 onTap: () {
                   Navigator.pop(sheet);
-                  state.selectCourse(course);
+                  state.createNotebook(sourcesFirst: true);
                 },
               ),
-            const Divider(),
-            for (final entry in studySamples.entries)
-              ListTile(
-                leading: const Icon(Icons.science_outlined),
-                title: Text(entry.value),
-                subtitle: const Text('Sổ mẫu'),
-                onTap: () {
-                  Navigator.pop(sheet);
-                  state.openStudySample(entry.key);
-                },
-              ),
-          ]),
+              for (final course in state.courses)
+                ListTile(
+                  leading: Icon(
+                    course.isSample
+                        ? Icons.auto_stories_outlined
+                        : Icons.book_outlined,
+                  ),
+                  selected: state.selectedCourseId == course.id,
+                  title: Text(course.title),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                    state.selectCourse(course);
+                  },
+                ),
+              const Divider(),
+              for (final entry in studySamples.entries)
+                ListTile(
+                  leading: const Icon(Icons.science_outlined),
+                  title: Text(entry.value),
+                  subtitle: const Text('Sổ mẫu'),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                    state.openStudySample(entry.key);
+                  },
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _content(AppState state, Course course) => switch (_page) {
-        StudyPage.dashboard => DashboardPage(course: course, onNavigate: _go),
-        StudyPage.plan => StudyPlanPage(course: course, onNavigate: _go),
-        StudyPage.chat => TutorChat(
-            key: ValueKey('chat-${course.id}'),
-            courseId: course.id,
-            onIntercept: (q) => _intercept(course, q),
-            onSaveNote: (m) => state.saveChatNote(course, m),
-            emptyActions: [
-              if (course.lessons.isEmpty)
-                ActionChip(
-                    avatar: const Icon(Icons.route_outlined, size: 18),
-                    label: const Text('Lập lộ trình'),
-                    onPressed: () => _intercept(course, 'lập lộ trình')),
-              if (course.enabledSources.isNotEmpty) ...[
-                ActionChip(label: const Text('Tóm tắt'), onPressed: () => StudyActions.create(context, course, StudyArtifactKind.summary)),
-                ActionChip(label: const Text('Tạo quiz'), onPressed: () => StudyActions.quizBuilder(context, course)),
-              ],
-            ],
-          ),
-        StudyPage.research => ResearchPage(course: course, onNavigate: _go),
-        StudyPage.materials => MaterialsPage(course: course),
-        _ => PracticePage(key: ValueKey(_page), course: course, page: _page, onNavigate: _go),
-      };
+  Widget _chat(AppState state, Course course) => TutorChat(
+    key: ValueKey('chat-${course.id}'),
+    courseId: course.id,
+    initialQuestion: widget.initialQuestion,
+    onIntercept: (q) => _intercept(course, q),
+    onSaveNote: (m) => state.saveChatNote(course, m),
+    emptyActions: [
+      ActionChip(
+        avatar: const Icon(Icons.route_outlined, size: 18),
+        label: Text(course.lessons.isEmpty ? 'Lập lộ trình' : 'Xem lộ trình'),
+        onPressed: () => course.lessons.isEmpty
+            ? _plan(course, 'lập lộ trình')
+            : openStudyPage(context, course, StudyPage.plan),
+      ),
+      ActionChip(
+        avatar: const Icon(Icons.science_outlined, size: 18),
+        label: const Text('Thí nghiệm ảo'),
+        onPressed: () => openStudyPage(context, course, StudyPage.lab),
+      ),
+      if (course.enabledSources.isNotEmpty || course.isSample)
+        ActionChip(
+          avatar: const Icon(Icons.quiz_outlined, size: 18),
+          label: const Text('Tạo quiz'),
+          onPressed: () => StudyActions.quizBuilder(context, course),
+        ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final course = state.selectedCourse;
-    if (course != null) _onCourse(state, course);
-    return LayoutBuilder(builder: (context, box) {
-      final wide = box.maxWidth >= 900;
-      final sidebar = _Sidebar(
-        course: course,
-        page: _page,
-        wide: wide,
-        onPage: (p) {
-          if (!wide) Navigator.maybePop(context);
-          _go(p);
-        },
-        onLibrary: () => _library(state),
-        onUpload: course == null ? null : () {
-          if (!wide) Navigator.maybePop(context);
-          _upload(course);
-        },
-        onReview: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReviewScreen())),
-        onAccount: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyAccountScreen())),
-      );
-      final body = Column(children: [
-        if (state.syncError != null) _SyncBanner(state: state),
-        if (state.canImportGuest)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () async {
-                final messenger = ScaffoldMessenger.of(context);
-                final count = await state.importGuestCourses();
-                messenger.showSnackBar(SnackBar(content: Text('Đã nhập $count sổ từ máy này.')));
-              },
-              icon: const Icon(Icons.file_download_outlined),
-              label: const Text('Nhập sổ đã lưu trên máy'),
-            ),
-          ),
-        if (wide && course != null) _Breadcrumb(course: course, page: _page),
-        Expanded(child: course == null ? const _Welcome() : _content(state, course)),
-      ]);
+    if (course == null) {
       return Scaffold(
-        drawer: wide ? null : Drawer(width: 300, child: sidebar),
-        appBar: wide
-            ? null
-            : AppBar(
-                titleSpacing: 0,
-                title: course == null
-                    ? const Text('Học Thông Minh')
-                    : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(_page.label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                        Text(course.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                      ]),
-                actions: [
-                  IconButton(
-                    tooltip: 'Tài khoản',
-                    icon: Icon(state.signedIn ? Icons.account_circle : Icons.person_outline),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyAccountScreen())),
+        appBar: AppBar(),
+        body: const Center(child: Text('Chưa chọn sổ học tập.')),
+      );
+    }
+    _onCourse(state, course);
+    return LayoutBuilder(
+      builder: (context, box) {
+        final wide = box.maxWidth >= 900;
+        final banner = [if (state.syncError != null) _SyncBanner(state: state)];
+        final Widget body;
+        if (wide) {
+          body = Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: 320,
+                child: _Panel(
+                  title: 'Nguồn',
+                  child: MaterialsPage(course: course),
+                ),
+              ),
+              Expanded(
+                child: _Panel(title: 'Chat', child: _chat(state, course)),
+              ),
+              SizedBox(
+                width: 360,
+                child: _Panel(
+                  title: 'Studio',
+                  child: StudioPanel(course: course),
+                ),
+              ),
+            ],
+          );
+        } else {
+          body = IndexedStack(
+            index: _tab.index,
+            children: [
+              MaterialsPage(course: course),
+              _chat(state, course),
+              StudioPanel(course: course),
+            ],
+          );
+        }
+        return Scaffold(
+          appBar: AppBar(
+            titleSpacing: 0,
+            title: InkWell(
+              onTap: () => _library(state),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      course.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
+                  const Icon(Icons.arrow_drop_down),
                 ],
               ),
-        body: wide
-            ? Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                SizedBox(width: 272, child: Material(color: Colors.white, child: sidebar)),
-                const VerticalDivider(width: 1),
-                Expanded(child: body),
-              ])
-            : body,
-        floatingActionButton: course == null || _page == StudyPage.chat
-            ? null
-            : FloatingActionButton(
-                tooltip: 'Trợ lý AI',
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: const CircleBorder(),
-                onPressed: () => _assistant(course),
-                child: const Icon(Icons.auto_awesome),
+            ),
+            actions: [
+              IconButton(
+                tooltip: 'Tài khoản',
+                icon: Icon(
+                  state.signedIn ? Icons.account_circle : Icons.person_outline,
+                ),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StudyAccountScreen()),
+                ),
               ),
-      );
-    });
+            ],
+          ),
+          body: Column(
+            children: [
+              ...banner,
+              Expanded(child: body),
+            ],
+          ),
+          bottomNavigationBar: wide
+              ? null
+              : NavigationBar(
+                  selectedIndex: _tab.index,
+                  onDestinationSelected: (i) =>
+                      setState(() => _tab = NotebookTab.values[i]),
+                  destinations: [
+                    for (final t in NotebookTab.values)
+                      NavigationDestination(icon: Icon(t.icon), label: t.label),
+                  ],
+                ),
+        );
+      },
+    );
   }
 }
 
-class _Sidebar extends StatelessWidget {
-  const _Sidebar({
-    required this.course,
-    required this.page,
-    required this.wide,
-    required this.onPage,
-    required this.onLibrary,
-    required this.onUpload,
-    required this.onReview,
-    required this.onAccount,
-  });
-  final Course? course;
-  final StudyPage page;
-  final bool wide;
-  final ValueChanged<StudyPage> onPage;
-  final VoidCallback onLibrary, onReview, onAccount;
-  final VoidCallback? onUpload;
+class _Panel extends StatelessWidget {
+  const _Panel({required this.title, required this.child});
+  final String title;
+  final Widget child;
 
-  Widget _item(StudyPage p, {bool indent = false}) {
-    final selected = p == page;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(indent ? 20 : 8, 1, 8, 1),
-      child: ListTile(
-        dense: true,
-        visualDensity: VisualDensity.compact,
-        selected: selected,
-        selectedTileColor: AppColors.accent,
-        selectedColor: AppColors.primaryDark,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        leading: Icon(p.icon, size: 20),
-        title: Text(p.label, style: TextStyle(fontSize: 14.5, fontWeight: selected ? FontWeight.w800 : FontWeight.w500)),
-        onTap: () => onPage(p),
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+    child: Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border),
       ),
-    );
-  }
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(child: child),
+        ],
+      ),
+    ),
+  );
+}
+
+/// O Studio kieu NotebookLM: luoi cong cu tao noi dung + danh sach da tao.
+class StudioPanel extends StatelessWidget {
+  const StudioPanel({super.key, required this.course});
+  final Course course;
+
+  static const tools = <(StudyPage, Color)>[
+    (StudyPage.plan, Color(0xFFD01628)),
+    (StudyPage.lab, Color(0xFF00897B)),
+    (StudyPage.quiz, Color(0xFF2F6FDB)),
+    (StudyPage.flashcards, Color(0xFFF2A100)),
+    (StudyPage.test, Color(0xFF8E44AD)),
+    (StudyPage.arcade, Color(0xFF1E8E3E)),
+    (StudyPage.explainers, Color(0xFFEF6C00)),
+    (StudyPage.research, Color(0xFF3949AB)),
+    (StudyPage.miniApps, Color(0xFFD81B60)),
+    (StudyPage.dashboard, Color(0xFF546E7A)),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final c = course;
-    final sources = c?.activeSources ?? const <CourseSource>[];
-    return SafeArea(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onLibrary,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.auto_stories, color: Colors.white, size: 19),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('SỔ HỌC TẬP', style: TextStyle(fontSize: 10.5, letterSpacing: 1, fontWeight: FontWeight.w800, color: AppColors.muted)),
-                    Text(c?.title ?? 'Chọn hoặc tạo sổ', maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                  ]),
-                ),
-                const Icon(Icons.unfold_more, size: 20, color: AppColors.muted),
-              ]),
-            ),
-          ),
-        ),
-        Expanded(
-          child: ListView(padding: const EdgeInsets.only(bottom: 8), children: [
-            if (c != null) ...[
-              for (final p in StudyPage.main) _item(p),
-              Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                child: ExpansionTile(
-                  initiallyExpanded: true,
-                  dense: true,
-                  tilePadding: const EdgeInsets.symmetric(horizontal: 24),
-                  leading: const Icon(Icons.fitness_center_outlined, size: 20),
-                  title: const Text('Luyện tập & Hoạt động', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600)),
-                  children: [for (final p in StudyPage.practice) _item(p, indent: true)],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: FilledButton.icon(onPressed: onUpload, icon: const Icon(Icons.add), label: const Text('Tải lên')),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 12, 2),
-                child: Row(children: [
-                  const Expanded(child: Text('Tài liệu', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.muted))),
-                  TextButton(onPressed: () => onPage(StudyPage.materials), child: const Text('Xem tất cả')),
-                ]),
-              ),
-              if (sources.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(24, 0, 16, 8),
-                  child: Text('Chưa có tài liệu nào.', style: TextStyle(fontSize: 13, color: AppColors.muted)),
-                ),
-              for (final s in sources.take(6))
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: ListTile(
-                    dense: true,
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    leading: Icon(sourceIcon(s.kind, s.mimeType), size: 18, color: s.enabled ? AppColors.primary : AppColors.muted),
-                    title: Text(s.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 13.5, color: s.enabled ? null : AppColors.muted)),
-                    onTap: () => onPage(StudyPage.materials),
+    context.watch<AppState>();
+    final made = course.artifacts.reversed.toList();
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      children: [
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 2.9,
+          children: [
+            for (final (page, color) in tools)
+              Material(
+                color: color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => openStudyPage(context, course, page),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      children: [
+                        Icon(page.icon, color: color, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            page.label,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13.5,
+                              height: 1.15,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-            ] else
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: Text('Chọn một sổ học tập hoặc tạo sổ mới để bắt đầu.', style: TextStyle(color: AppColors.muted)),
               ),
-          ]),
+          ],
         ),
-        const Divider(height: 1),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(children: [
-            Expanded(child: TextButton.icon(onPressed: onReview, icon: const Icon(Icons.track_changes_outlined, size: 18), label: const Text('Ôn tập'))),
-            if (wide)
-              Expanded(child: TextButton.icon(onPressed: onAccount, icon: const Icon(Icons.person_outline, size: 18), label: const Text('Tài khoản'))),
-          ]),
+        const SizedBox(height: 16),
+        const Text(
+          'Đã tạo',
+          style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.muted),
         ),
-      ]),
+        const SizedBox(height: 4),
+        if (made.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'Nội dung bạn tạo (quiz, thẻ ghi nhớ, tóm tắt, ghi chú…) sẽ nằm ở đây.',
+              style: TextStyle(color: AppColors.muted),
+            ),
+          ),
+        for (final a in made)
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: Icon(switch (a.kind) {
+              StudyArtifactKind.flashcards => Icons.style_outlined,
+              StudyArtifactKind.summary ||
+              StudyArtifactKind.note => Icons.notes,
+              StudyArtifactKind.canvas => Icons.widgets_outlined,
+              _ => Icons.quiz_outlined,
+            }, color: AppColors.primary),
+            title: Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            subtitle: Text(
+              '${a.kind.label} · ${a.sourceIds.length} nguồn',
+              style: const TextStyle(fontSize: 12),
+            ),
+            onTap: () => StudyActions.open(context, course, a),
+          ),
+      ],
     );
   }
-}
-
-class _Breadcrumb extends StatelessWidget {
-  const _Breadcrumb({required this.course, required this.page});
-  final Course course;
-  final StudyPage page;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: AppColors.border))),
-        child: Row(children: [
-          Flexible(child: Text(course.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.muted))),
-          const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Icon(Icons.chevron_right, size: 18, color: AppColors.muted)),
-          Icon(page.icon, size: 18),
-          const SizedBox(width: 6),
-          Text(page.label, style: const TextStyle(fontWeight: FontWeight.w700)),
-        ]),
-      );
 }
 
 class _SyncBanner extends StatelessWidget {
@@ -437,103 +475,45 @@ class _SyncBanner extends StatelessWidget {
   final AppState state;
 
   @override
-  Widget build(BuildContext context) => MaterialBanner(content: Text(state.syncError!), actions: [
-        TextButton(onPressed: state.retrySync, child: const Text('Thử lưu lại')),
-        if (state.signedIn)
-          TextButton(
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (dialog) => AlertDialog(
-                  title: const Text('Tải bản đồng bộ?'),
-                  content: const Text('Thay đổi chưa đồng bộ trên máy này sẽ bị thay bằng bản trên tài khoản.'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Hủy')),
-                    FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Tải bản đồng bộ')),
-                  ],
+  Widget build(BuildContext context) => MaterialBanner(
+    content: Text(state.syncError!),
+    actions: [
+      TextButton(onPressed: state.retrySync, child: const Text('Thử lưu lại')),
+      if (state.signedIn)
+        TextButton(
+          onPressed: () async {
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (dialog) => AlertDialog(
+                title: const Text('Tải bản đồng bộ?'),
+                content: const Text(
+                  'Thay đổi chưa đồng bộ trên máy này sẽ bị thay bằng bản trên tài khoản.',
                 ),
-              );
-              if (confirmed != true || !context.mounted) return;
-              try {
-                await state.useCloudCopy();
-              } catch (_) {
-                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chưa thể tải bản đồng bộ.')));
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialog, false),
+                    child: const Text('Hủy'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialog, true),
+                    child: const Text('Tải bản đồng bộ'),
+                  ),
+                ],
+              ),
+            );
+            if (confirmed != true || !context.mounted) return;
+            try {
+              await state.useCloudCopy();
+            } catch (_) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Chưa thể tải bản đồng bộ.')),
+                );
               }
-            },
-            child: const Text('Tải bản đồng bộ'),
-          ),
-      ]);
-}
-
-class _Welcome extends StatefulWidget {
-  const _Welcome();
-
-  @override
-  State<_Welcome> createState() => _WelcomeState();
-}
-
-class _WelcomeState extends State<_Welcome> {
-  final _input = TextEditingController();
-  bool _creating = false;
-
-  @override
-  void dispose() {
-    _input.dispose();
-    super.dispose();
-  }
-
-  Future<void> _start([String? value]) async {
-    if (_creating) return;
-    final state = context.read<AppState>();
-    setState(() => _creating = true);
-    final topic = (value ?? _input.text).trim();
-    if (topic.isNotEmpty) FocusScope.of(context).unfocus();
-    await state.createNotebook(prompt: topic.isEmpty ? null : topic, sourcesFirst: topic.isEmpty);
-    if (mounted) setState(() => _creating = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 730),
-        child: ListView(shrinkWrap: true, padding: const EdgeInsets.all(24), children: [
-          Icon(Icons.auto_stories_outlined, size: 48, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(height: 14),
-          Text('Hôm nay bạn muốn học gì?', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 18),
-          TextField(
-            controller: _input,
-            textInputAction: TextInputAction.go,
-            onSubmitted: _start,
-            decoration: InputDecoration(
-              labelText: 'Chủ đề hoặc mục tiêu',
-              hintText: 'Ví dụ: Tìm nguồn và lên lộ trình học xác suất',
-              suffixIcon: IconButton(tooltip: 'Bắt đầu', onPressed: _creating ? null : () => _start(), icon: const Icon(Icons.arrow_forward)),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-            FilledButton(onPressed: _creating ? null : () => _start(), child: const Text('Bắt đầu')),
-            OutlinedButton.icon(onPressed: _creating ? null : () => _start(''), icon: const Icon(Icons.add), label: const Text('Tạo sổ từ tài liệu')),
-          ]),
-          const SizedBox(height: 26),
-          Text('Thử sổ mẫu', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final entry in studySamples.entries)
-              ActionChip(
-                  label: Text(entry.value), avatar: const Icon(Icons.science_outlined, size: 17), onPressed: () => state.openStudySample(entry.key)),
-          ]),
-          if (state.courses.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            Text('Sổ của bạn', style: Theme.of(context).textTheme.titleMedium),
-            for (final course in state.courses)
-              ListTile(title: Text(course.title), leading: const Icon(Icons.book_outlined), onTap: () => state.selectCourse(course)),
-          ],
-        ]),
-      ),
-    );
-  }
+            }
+          },
+          child: const Text('Tải bản đồng bộ'),
+        ),
+    ],
+  );
 }
