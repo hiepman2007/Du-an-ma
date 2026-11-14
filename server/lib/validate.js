@@ -1,5 +1,5 @@
 // Kiem tra/lam sach khoi truoc khi gui ve app: bo khoi sai, chan bieu thuc la, chi giu URL do cong cu tim kiem tra ve.
-import { BLOCK_TYPES, MOTION_KINDS } from './schemas.js';
+import { BLOCK_TYPES, MOTION_KINDS, SIM_SCENES } from './schemas.js';
 
 const EXPR_OK = /^[0-9a-zA-Z_+\-*/^().,\s]+$/;
 const ALLOWED_FUNCS = new Set(['sin', 'cos', 'tan', 'sqrt', 'abs', 'ln', 'log', 'exp', 'pi', 'e']);
@@ -20,6 +20,21 @@ export function safeExpression(expr, names) {
 }
 
 const goodVars = (vs) => Array.isArray(vs) && vs.every((v) => v.min < v.max && v.step > 0);
+
+/** phenomenon_sim: canh phai co trong danh muc; bien la bi bo, gia tri mac dinh kep trong [min, max]. */
+export function cleanSim(sim) {
+  const spec = sim && SIM_SCENES[sim.scene];
+  if (!spec) return null;
+  const variables = (Array.isArray(sim.variables) ? sim.variables : [])
+    .filter((v) => v && spec.vars.includes(v.name) && Number.isFinite(v.min) && Number.isFinite(v.max) && v.min < v.max)
+    .map((v) => ({ ...v, step: v.step > 0 ? v.step : (v.max - v.min) / 50, default: Math.min(v.max, Math.max(v.min, Number.isFinite(v.default) ? v.default : v.min)) }));
+  return {
+    scene: sim.scene,
+    option: spec.options.includes(sim.option) ? sim.option : (spec.options[0] ?? null),
+    variables,
+    challenges: (Array.isArray(sim.challenges) ? sim.challenges : []).filter((c) => typeof c === 'string' && c.trim()).slice(0, 3),
+  };
+}
 
 function cleanReaction(r) {
   if (!r || !Array.isArray(r.reagents) || r.reagents.length < 2 || r.reagents.length > 8) return null;
@@ -75,6 +90,7 @@ export function cleanBlocks(blocks, { allowedUrls } = {}) {
       }
       case 'reaction_lab': blk.reaction = cleanReaction(blk.reaction); ok = !!blk.reaction; break;
       case 'chem_formula': ok = !!blk.chem && FORMULA_OK.test(blk.chem.formula || ''); break;
+      case 'phenomenon_sim': blk.phenomenon = cleanSim(blk.phenomenon); ok = !!blk.phenomenon; break;
       case 'motion_sim': {
         const m = blk.motion;
         const names = new Set((m?.variables || []).map((v) => v.name));

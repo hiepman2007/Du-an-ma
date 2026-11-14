@@ -11,6 +11,7 @@ import 'custom_sim_block.dart';
 import 'generic_blocks.dart';
 import 'lab_blocks.dart';
 import 'motion_block.dart';
+import 'phenomenon_block.dart';
 import 'question_blocks.dart';
 
 /// Dung widget Flutter tuong ung voi loai khoi AI da chon.
@@ -42,6 +43,7 @@ class BlockRenderer extends StatelessWidget {
       BlockType.customSim => CustomSimBlock(block: block, lesson: lesson),
       BlockType.codeDemo => CodeDemoBlock(block: block),
       BlockType.dsaSim => DsaSimulationBlock(block: block),
+      BlockType.phenomenonSim => PhenomenonBlock(block: block),
     };
   }
 }

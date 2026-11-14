@@ -28,7 +28,7 @@ const dsaSchema = object({
 const existingBlock = lessonSchema.properties.blocks.items.properties;
 const quizTypes = ['mcq', 'true_false', 'fill_blank', 'matching', 'ordering'];
 const lessonTypes = ['text_section', 'code_demo', 'step_solver', 'concept_map', 'flashcards', ...quizTypes,
-  'dsa_sim', 'formula_lab', 'function_graph', 'reaction_lab', 'chem_formula', 'motion_sim'];
+  'dsa_sim', 'formula_lab', 'function_graph', 'reaction_lab', 'chem_formula', 'motion_sim', 'phenomenon_sim'];
 const studio = {
   summary: { types: ['text_section'], instruction: 'Tóm tắt bằng 2–4 mục, mở đầu bằng các ý chính và giải thích ngắn.' },
   quick_quiz: { types: quizTypes.slice(0, 3), instruction: 'Viết tối đa 5 câu trắc nghiệm, đúng/sai hoặc điền khuyết, có đáp án và giải thích.' },
@@ -39,8 +39,10 @@ const fieldsForType = {
   mcq: ['options', 'answer_index'], true_false: ['answer_bool'], fill_blank: ['answers'],
   matching: ['pairs'], ordering: ['items'], flashcards: ['cards'], step_solver: ['steps'],
   concept_map: ['nodes', 'edges'], code_demo: ['code'], formula_lab: ['lab'], function_graph: ['graph'],
-  reaction_lab: ['reaction'], chem_formula: ['chem'], motion_sim: ['motion'],
+  reaction_lab: ['reaction'], chem_formula: ['chem'], motion_sim: ['motion'], phenomenon_sim: ['phenomenon'],
 };
+// Y dinh cua nguoi hoc trong khung chat: app dung de hien the dieu huong (mo lo trinh, quiz, phong thi nghiem...).
+export const CHAT_INTENTS = ['none', 'plan', 'quiz', 'flashcards', 'lab', 'summary', 'test'];
 
 function contentSchema(types) {
   const fields = new Set(types.flatMap((type) => fieldsForType[type] || []));
@@ -363,18 +365,22 @@ export async function answerStudyQuestion(body = {}) {
   const question = cleanText(body.question, 1000);
   if (!question) throw fail(400, 'Hãy nhập câu hỏi của bạn.');
   const role = roleFor(body.role);
-  const types = ['text_section', 'code_demo', 'step_solver', 'concept_map', 'mcq', 'true_false', 'dsa_sim'];
+  const types = ['text_section', 'code_demo', 'step_solver', 'concept_map', 'mcq', 'true_false', 'dsa_sim', 'phenomenon_sim'];
+  const schema = contentSchema(types);
+  schema.properties.intent = { type: 'string', enum: CHAT_INTENTS };
+  schema.required.push('intent');
   const history = list(body.history).slice(-6).map((message) => ({
     from: message?.from === 'user' ? 'user' : 'tutor', text: cleanText(message?.text, 500),
   }));
   return generateStudy('study-ask', 'small', body, async ({ evidence }, call) => {
     const { json } = await call(
       `Môn: ${cleanText(body.subject, 100)}. Bài: ${cleanText(body.lessonTitle, 150)}. Bước học: ${cleanText(body.step, 400)}. Hội thoại gần đây: ${JSON.stringify(history)}. Câu hỏi mới: ${question}`,
-      `${askSystem(role, { hasSources: evidence.size > 0, socratic: body.socratic === true })} ${sourceRules} Nếu nguồn đã chọn không đủ, hãy nêu rõ và không gắn nguồn không liên quan.`,
-      contentSchema(types),
+      `${askSystem(role, { hasSources: evidence.size > 0, socratic: body.socratic === true })} ${sourceRules} Nếu nguồn đã chọn không đủ, hãy nêu rõ và không gắn nguồn không liên quan. Khi câu hỏi về một hiện tượng/thí nghiệm khớp một cảnh phenomenon_sim, thêm khối đó sau phần giải thích. intent: "plan" nếu người học muốn lập lộ trình/kế hoạch học, "quiz" nếu muốn làm bài kiểm tra/câu hỏi luyện, "flashcards" nếu muốn thẻ ghi nhớ, "lab" nếu muốn làm thí nghiệm/mô phỏng, "summary" nếu muốn tóm tắt, "test" nếu muốn thi thử; còn lại "none".`,
+      schema,
     );
     const blocks = validateStudyBlocks(json?.blocks, evidence, types).slice(0, 5);
     if (blocks[0]?.type !== 'text_section') throw fail(502, 'AI chưa trả lời được câu hỏi này. Hãy thử lại.');
-    return { ...withSources(cleanText(json.title, 150) || 'Gia sư', blocks), web: [], webMode: 'off' };
+    const intent = CHAT_INTENTS.includes(json?.intent) ? json.intent : 'none';
+    return { ...withSources(cleanText(json.title, 150) || 'Gia sư', blocks), intent, web: [], webMode: 'off' };
   });
 }

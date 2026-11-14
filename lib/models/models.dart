@@ -124,7 +124,7 @@ class Graph {
 
 enum BlockType {
   textSection, mcq, trueFalse, fillBlank, matching, ordering, formulaLab, functionGraph, flashcards,
-  stepSolver, conceptMap, imageCard, reactionLab, chemFormula, motionSim, customSim, codeDemo, dsaSim,
+  stepSolver, conceptMap, imageCard, reactionLab, chemFormula, motionSim, customSim, codeDemo, dsaSim, phenomenonSim,
 }
 
 const _blockTypeIds = {
@@ -135,6 +135,7 @@ const _blockTypeIds = {
   'reaction_lab': BlockType.reactionLab,
   'chem_formula': BlockType.chemFormula,
   'motion_sim': BlockType.motionSim,
+  'phenomenon_sim': BlockType.phenomenonSim,
   'custom_sim': BlockType.customSim,
   'code_demo': BlockType.codeDemo,
   'text_section': BlockType.textSection,
@@ -203,6 +204,7 @@ class Block {
   bool get isInteractive => const {
         BlockType.formulaLab, BlockType.functionGraph, BlockType.reactionLab, BlockType.chemFormula,
         BlockType.motionSim, BlockType.stepSolver, BlockType.conceptMap, BlockType.customSim, BlockType.dsaSim,
+        BlockType.phenomenonSim,
       }.contains(type);
 
   /// Tra ve null neu loai khoi khong co trong danh muc (bo qua an toan).

@@ -32,6 +32,7 @@ TẦNG 1 – Bộ máy chuyên biệt (dùng khi khớp chủ đề):
 - reaction_lab: PHÒNG THÍ NGHIỆM HÓA ẢO. reaction.setup (mô tả dụng cụ), reaction.reagents 3-6 chất (id ngắn, name, formula, color là mã hex màu thật của chất/dung dịch, state), reaction.reactions là danh sách phản ứng giữa các tổ hợp chất (reagents là các id; equation đã cân bằng; observation là hiện tượng quan sát được; color là mã hex màu dung dịch sau phản ứng; gas; precipitate; precipitate_color; heat; min_temp nếu cần đun nóng; explanation). Nên có cả tổ hợp KHÔNG phản ứng để học sinh tự khám phá (khi đó không liệt kê, app hiện no_reaction_text). safety: lưu ý an toàn nếu là thí nghiệm thật. Chỉ dùng hóa học chính xác.
 - chem_formula: tra cứu công thức hóa học: chem.formula (ví dụ "H2SO4", "Ca(OH)2"), chem.name; app tự tính khối lượng mol, đếm nguyên tử.
 - motion_sim: mô phỏng chuyển động: motion.kind là "projectile" (biến v0 m/s, angle độ, g), "free_fall" (biến h mét, g) hoặc "pendulum" (biến L mét, theta0 độ, g); variables PHẢI dùng đúng các tên biến đó.
+- phenomenon_sim: PHÒNG THÍ NGHIỆM ẢO dựng sẵn trong app (ưu tiên khi chủ đề khớp một cảnh). phenomenon.scene chọn một trong: "circuit" (mạch điện, định luật Ohm; biến U vôn, R1, R2 ôm; option "series" hoặc "parallel"), "refraction" (khúc xạ, phản xạ toàn phần; biến n1, n2, angle độ), "lens" (thấu kính tạo ảnh; biến f cm, d cm khoảng cách vật; option "converging" hoặc "diverging"), "spring" (con lắc lò xo, dao động điều hòa; biến k N/m, m kg, A cm), "wave" (sóng cơ, giao thoa; biến f Hz, wavelength cm, d cm khoảng cách hai nguồn; option "single" hoặc "interference"), "gas" (thuyết động học chất khí, P-V-T; biến T kelvin, V lít, N số hạt), "electric_field" (điện trường, đường sức; biến q1, q2 µC, d cm), "buoyancy" (lực đẩy Ác-si-mét, nổi chìm; biến rho_liquid, rho_object kg/m³, V cm³), "titration" (chuẩn độ axit-bazơ, pH; biến Ca, Cb mol/L, Va mL; option chất chỉ thị "phenolphthalein", "methyl_orange" hoặc "litmus"), "states" (chuyển thể rắn-lỏng-khí; biến T °C; option "water" hoặc "ethanol"). variables chỉ dùng đúng tên biến của cảnh (có thể để trống để app dùng giá trị mặc định); challenges 1-3 câu thử thách cụ thể dạng "Thử ..., quan sát ..."; body là hướng dẫn ngắn.
 TẦNG 2 – Dùng cho MỌI môn:
 - text_section: bài giảng ngắn (body markdown đơn giản 80-200 từ).
 - mcq (4 lựa chọn, answer_index từ 0, explanation), true_false (answer_bool, explanation), fill_blank (body có "____", answers gồm các cách viết đúng).
@@ -43,7 +44,7 @@ TẦNG 2 – Dùng cho MỌI môn:
 TẦNG 3 – Dự phòng khi KHÔNG khối nào ở trên mô tả được hiện tượng cần tương tác:
 - custom_sim: sim_prompt mô tả rõ mô phỏng tương tác cần tạo (đối tượng, tham số học sinh chỉnh, điều quan sát được). Tối đa 1 khối mỗi bài.`;
 
-const SUBJECT_GUIDE = `GỢI Ý THEO MÔN: Toán -> function_graph (tangent/area/roots/extrema), step_solver; Vật lý -> formula_lab, motion_sim, function_graph; Hóa học -> reaction_lab, chem_formula, image_card; Sinh học/Địa lý -> image_card, concept_map, ordering; Lịch sử/Văn/Xã hội -> ordering (dòng thời gian), concept_map, matching; Kinh tế/Tài chính -> formula_lab, function_graph; Lập trình/Tin học -> code_demo, step_solver, ordering. Môn khác -> dùng tầng 2, chỉ dùng custom_sim khi thật cần.`;
+const SUBJECT_GUIDE = `GỢI Ý THEO MÔN: Toán -> function_graph (tangent/area/roots/extrema), step_solver; Vật lý -> phenomenon_sim, motion_sim, formula_lab, function_graph; Hóa học -> reaction_lab, phenomenon_sim (titration, states, gas), chem_formula, image_card; Sinh học/Địa lý -> image_card, concept_map, ordering; Lịch sử/Văn/Xã hội -> ordering (dòng thời gian), concept_map, matching; Kinh tế/Tài chính -> formula_lab, function_graph; Lập trình/Tin học -> code_demo, step_solver, ordering. Môn khác -> dùng tầng 2, chỉ dùng custom_sim khi thật cần.`;
 
 export function outlineSystem(role) {
   return `Bạn là người thiết kế khóa học. ${roleStyle(role)}
@@ -65,7 +66,7 @@ ${LANG_RULE}`;
 
 export function interactiveSystem(role) {
   return `Bạn tạo 1-2 khối TƯƠNG TÁC/THỰC NGHIỆM bổ sung để người học tự khám phá một khái niệm. ${roleStyle(role)}
-Chỉ dùng: formula_lab, function_graph, reaction_lab, chem_formula, motion_sim, matching, ordering, step_solver, concept_map, custom_sim.
+Chỉ dùng: phenomenon_sim, formula_lab, function_graph, reaction_lab, chem_formula, motion_sim, matching, ordering, step_solver, concept_map, custom_sim.
 ${CATALOG}
 ${SUBJECT_GUIDE}
 ${FAITHFUL_RULE} ${FORMAT_RULE} ${LANG_RULE}`;
@@ -109,7 +110,7 @@ export function askSystem(role, { web = false, hasSources = true, socratic = fal
   return `Bạn là GIA SƯ AI trong ứng dụng học tập trên điện thoại. ${roleStyle(role)}${socratic ? `\n${SOCRATIC_RULE}` : ''}
 Trả lời câu hỏi của người học bằng 1-4 KHỐI, tự chọn hình thức hiển thị giúp hiểu nhanh nhất (giống câu trả lời có giao diện tương tác):
 - Luôn mở đầu bằng 1 text_section ngắn (40-150 từ) trả lời thẳng vào câu hỏi, có công thức LaTeX nếu cần.
-- Thêm khối minh họa khi giúp hiểu rõ hơn: image_card (ảnh thật về vật/hiện tượng), function_graph / formula_lab / motion_sim / reaction_lab (khi người học muốn thử nghiệm, thay đổi số liệu), step_solver (bài tính toán), concept_map (so sánh, hệ thống khái niệm), code_demo (lập trình), chem_formula.
+- Thêm khối minh họa khi giúp hiểu rõ hơn: image_card (ảnh thật về vật/hiện tượng), phenomenon_sim / function_graph / formula_lab / motion_sim / reaction_lab (khi người học muốn thử nghiệm, xem hiện tượng, thay đổi số liệu), step_solver (bài tính toán), concept_map (so sánh, hệ thống khái niệm), code_demo (lập trình), chem_formula.
 - Nếu người học nhờ "kiểm tra", thêm 1 câu mcq hoặc true_false.
 - Câu hỏi đơn giản thì chỉ cần 1 text_section. Không lặp lại câu hỏi. Không bịa.
 ${scopeRule({ web, hasSources })}

@@ -46,3 +46,19 @@ test('sanitizeSimulationHtml chan tai nguyen ngoai va boc CSP', () => {
 test('schema bai hoc cho Gemini khong con anyOf', () => {
   assert.equal(JSON.stringify(adaptSchema(lessonSchema)).includes('anyOf'), false);
 });
+
+test('phenomenon_sim: chi nhan canh trong danh muc, bo bien la, kep gia tri mac dinh', () => {
+  const [blk] = cleanBlocks([{
+    type: 'phenomenon_sim', topic: 'Khuc xa',
+    phenomenon: { scene: 'refraction', option: 'xyz', challenges: ['Thu tang goc toi', ''],
+      variables: [{ ...v('angle', 0, 89), default: 120 }, v('bien_la')] },
+  }]);
+  assert.equal(blk.phenomenon.scene, 'refraction');
+  assert.equal(blk.phenomenon.option, null);
+  assert.deepEqual(blk.phenomenon.variables.map((x) => x.name), ['angle']);
+  assert.equal(blk.phenomenon.variables[0].default, 89);
+  assert.deepEqual(blk.phenomenon.challenges, ['Thu tang goc toi']);
+  const [circuit] = cleanBlocks([{ type: 'phenomenon_sim', topic: 'Ohm', phenomenon: { scene: 'circuit', option: 'parallel', variables: [], challenges: [] } }]);
+  assert.equal(circuit.phenomenon.option, 'parallel');
+  assert.equal(cleanBlocks([{ type: 'phenomenon_sim', topic: 'x', phenomenon: { scene: 'rocket', option: null, variables: [], challenges: [] } }]).length, 0);
+});

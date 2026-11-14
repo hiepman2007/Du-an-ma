@@ -13,18 +13,31 @@ function obj(properties) {
 const nullable = (schema) => ({ anyOf: [schema, { type: 'null' }] });
 
 // Tang 1: bo may chuyen biet; tang 2: dung chung moi mon; tang 3: custom_sim (du phong).
-export const SPECIALIZED_TYPES = ['formula_lab', 'function_graph', 'reaction_lab', 'chem_formula', 'motion_sim'];
+export const SPECIALIZED_TYPES = ['formula_lab', 'function_graph', 'reaction_lab', 'chem_formula', 'motion_sim', 'phenomenon_sim'];
 export const GENERIC_TYPES = [
   'text_section', 'mcq', 'true_false', 'fill_blank', 'matching', 'ordering', 'flashcards',
   'step_solver', 'concept_map', 'image_card', 'code_demo',
 ];
 export const BLOCK_TYPES = [...GENERIC_TYPES, ...SPECIALIZED_TYPES, 'custom_sim'];
 export const INTERACTIVE_TYPES = [
-  'formula_lab', 'function_graph', 'reaction_lab', 'chem_formula', 'motion_sim',
+  'formula_lab', 'function_graph', 'reaction_lab', 'chem_formula', 'motion_sim', 'phenomenon_sim',
   'matching', 'ordering', 'step_solver', 'concept_map', 'custom_sim',
 ];
 export const MOTION_KINDS = ['projectile', 'free_fall', 'pendulum'];
 export const GRAPH_TOOLS = ['tangent', 'area', 'roots', 'extrema'];
+// Canh mo phong hien tuong viet san trong app (lib/widgets/sims/sim_catalog.dart); AI chi chon canh va thong so.
+export const SIM_SCENES = {
+  circuit: { vars: ['U', 'R1', 'R2'], options: ['series', 'parallel'] },
+  refraction: { vars: ['n1', 'n2', 'angle'], options: [] },
+  lens: { vars: ['f', 'd'], options: ['converging', 'diverging'] },
+  spring: { vars: ['k', 'm', 'A'], options: [] },
+  wave: { vars: ['f', 'wavelength', 'd'], options: ['single', 'interference'] },
+  gas: { vars: ['T', 'V', 'N'], options: [] },
+  electric_field: { vars: ['q1', 'q2', 'd'], options: [] },
+  buoyancy: { vars: ['rho_liquid', 'rho_object', 'V'], options: [] },
+  titration: { vars: ['Ca', 'Cb', 'Va'], options: ['phenolphthalein', 'methyl_orange', 'litmus'] },
+  states: { vars: ['T'], options: ['water', 'ethanol'] },
+};
 
 const variable = obj({ name: str, label: str, unit: str, min: num, max: num, step: num, default: num });
 
@@ -82,6 +95,12 @@ const blockSchema = obj({
   })),
   chem: nullable(obj({ formula: str, name: str })),
   motion: nullable(obj({ kind: { type: 'string', enum: MOTION_KINDS }, variables: { type: 'array', items: variable } })),
+  phenomenon: nullable(obj({
+    scene: { type: 'string', enum: Object.keys(SIM_SCENES) },
+    option: nstr,
+    variables: { type: 'array', items: variable },
+    challenges: strArr, // 1-3 cau thu thach "thu lam X, quan sat Y"
+  })),
   image_query: nstr, // image_card: tu khoa tieng Anh de tim anh tren Wikimedia Commons
   sim_prompt: nstr,  // custom_sim: mo ta mo phong can tao (app sinh khi hoc sinh bam)
   code: nullable(obj({ language: str, source: str, output: str })), // code_demo: code minh hoa + ket qua chay (AI ghi)
