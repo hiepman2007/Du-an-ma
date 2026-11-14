@@ -76,5 +76,6 @@ Flutter app (Android)
 | 13/11 | Backend `server/` (upload, lộ trình, bài học, tương tác, gia sư, tìm nguồn web có xác thực); app Flutter: 4 tab, tạo khóa học từ tài liệu/web, lộ trình sửa được, bài học gồm 9 loại widget do AI chọn, gia sư AI, ôn chủ đề yếu, thống kê; giao diện theo phong cách thinklogic.vn; khóa mẫu dự phòng. Chưa chạy thử với API key thật | Trước |
 | 13/11 | V2 (`docs/KE-HOACH-V2.md`): sổ học tập Nguồn · Hỏi đáp · Studio, sơ đồ lộ trình có trạng thái, quiz tương tác 3 bước, Canvas | Trước |
 | 13/11 | Chat gia sư kiểu ChatGPT: gộp chat của sổ và chat từng bài thành một màn (`TutorChat`), nhiều cuộc trò chuyện ở ngăn kéo có tìm kiếm, đổi ngữ cảnh cả khóa / một bài, nút "+" (đính PDF/ảnh, chọn nguồn, tra cứu web), chế độ Gợi mở, sao chép / tạo lại / sửa câu hỏi / dừng, chữ hiện dần | Trước |
+| 14/11 | Phòng thí nghiệm ảo: 10 cảnh mô phỏng vẽ bằng canvas (mạch điện, khúc xạ, thấu kính, lò xo, sóng/giao thoa, chất khí, điện trường, Ác-si-mét, chuẩn độ, chuyển thể), khối `phenomenon_sim` do AI chọn; trang chủ thống kê có linh vật Cú Đỏ; sổ học kiểu NotebookLM (Nguồn · Chat · Studio); chat nhận diện ý định và hiện thẻ tương tác | Trong |
 
 > Ghi chú: kế hoạch chi tiết mới nhất (luồng chính kiểu OpenMAIC, danh mục widget, chi phí API) đã thay cho mục 2–5 phía trên; xem `CLAUDE.md` mục Cấu trúc.

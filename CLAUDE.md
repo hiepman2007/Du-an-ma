@@ -29,11 +29,12 @@ Phụ (giữ, không phát triển thêm): tab Ôn tập, thống kê, khóa m�
 ## Cấu trúc
 - `lib/models/models.dart`: Course, Lesson, Block (JSON khớp `server/lib/schemas.js`), WebSource.
 - `lib/widgets/blocks/`: danh mục widget AI được chọn, chia 3 tầng (AI chỉ chọn và điền tham số, không viết code):
-  - Tầng 1, bộ máy chuyên biệt: `formula_lab`, `function_graph` (tiếp tuyến/diện tích/nghiệm/cực trị, hàm phụ), `reaction_lab` (phòng thí nghiệm hóa ảo, `chem_blocks.dart`), `chem_formula` (khối lượng mol, `lib/services/chem.dart`), `motion_sim` (ném xiên/rơi tự do/con lắc).
+  - Tầng 1, bộ máy chuyên biệt: `phenomenon_sim` (Phòng thí nghiệm ảo, `lib/widgets/sims/`: AI chọn `phenomenon.scene` trong danh mục `simCatalog` khớp `SIM_SCENES` ở `server/lib/schemas.js`, chỉ điền thông số và câu thử thách; trang `lib/screens/lab_screen.dart` mở cảnh không cần mạng), `formula_lab`, `function_graph` (tiếp tuyến/diện tích/nghiệm/cực trị, hàm phụ), `reaction_lab` (phòng thí nghiệm hóa ảo, `chem_blocks.dart`), `chem_formula` (khối lượng mol, `lib/services/chem.dart`), `motion_sim` (ném xiên/rơi tự do/con lắc).
   - Tầng 2, dùng mọi môn: `text_section`, `mcq`, `true_false`, `fill_blank`, `matching`, `ordering`, `flashcards`, `step_solver`, `concept_map`, `image_card` (ảnh Wikimedia Commons có giấy phép, server tìm ở `server/lib/images.js`).
   - Tầng 3, dự phòng: `custom_sim` — AI viết HTML mô phỏng khi học sinh bấm (`/api/simulation`), server chặn tài nguyên ngoài + bọc CSP, app chạy trong WebView chặn điều hướng.
   - Thêm loại khối mới phải sửa: `server/lib/schemas.js` (BLOCK_TYPES + trường), `server/lib/validate.js`, prompt `CATALOG` trong `server/lib/prompts.js`, `BlockType` trong `models.dart` + `block_renderer.dart`. Dữ liệu riêng của bộ máy đọc qua `block.rawMap(...)`.
-- `lib/screens/`: onboarding (vai trò), home_shell (4 tab), create_course (tài liệu | tìm trên mạng), roadmap, lesson, tutor_sheet, review, profile.
+- `lib/screens/`: onboarding (vai trò), `home_screen` (màn đầu: thống kê, linh vật Cú Đỏ `lib/widgets/mascot.dart`, ô giao việc cho AI), `home_shell` (`NotebookScreen` kiểu NotebookLM: tab dưới Nguồn | Chat | Studio, màn rộng 3 cột; `openStudyPage` mở các trang trong `study_pages.dart`), lab_screen, roadmap, lesson, review.
+- Chat điều hướng theo ý định: `lib/services/intent.dart` (từ khóa trên máy, server trả thêm `intent` ở `/api/study/ask`), thẻ dưới câu trả lời ở `lib/widgets/chat_cards.dart`.
 - `lib/data/sample_course.dart`: khóa mẫu soạn tay để xem giao diện / dự phòng.
 - `server/api/*`: `upload`, `course/outline`, `lesson`, `exercises`, `ask`, `interactive`, `simulation`, `explain`, `sources/search`, `health`, `usage`.
 - Khối `code_demo` (Tin học): `lib/widgets/blocks/code_block.dart`; AI ghi kết quả chạy, app không chạy code.
@@ -49,7 +50,7 @@ Phụ (giữ, không phát triển thêm): tab Ôn tập, thống kê, khóa m�
 ## Quy ước làm việc
 - Trả lời và viết giao diện bằng **tiếng Việt**; tên biến/hàm bằng tiếng Anh.
 - Ưu tiên thứ tự: (1) luồng AI chính chạy thật trên điện thoại thật, (2) vấn đề người dùng rõ ràng, (3) mở rộng. Đừng làm tính năng phụ trước khi 3 tính năng cốt lõi chạy ổn.
-- Giao diện mobile: thanh tab dưới đáy, một câu hỏi mỗi màn hình, nút lớn dễ bấm bằng ngón cái, hiển thị từng phần khi AI đang sinh (skeleton), xử lý lỗi mạng rõ ràng.
+- Giao diện mobile: thanh tab dưới đáy (trong sổ học), một câu hỏi mỗi màn hình, nút lớn dễ bấm bằng ngón cái, hiển thị từng phần khi AI đang sinh (skeleton), xử lý lỗi mạng rõ ràng.
 - Mỗi tính năng phải có trạng thái đang tải, lỗi, và rỗng.
 - Commit nhỏ, thường xuyên. Không commit file `.env`, key, hay `android/key.properties`.
 - Cần ghi rõ phần nào làm **trước hackathon** và phần nào làm **trong ngày** (BTC yêu cầu nêu khi trình bày): ghi trong `docs/KE-HOACH.md`, mục "Nhật ký làm việc".
