@@ -782,7 +782,10 @@ class AppState extends ChangeNotifier {
         webMode: out['webMode'] ?? 'off',
         intent: (() {
           final local = detectIntent(question);
-          return local != ChatIntent.none ? local.id : ChatIntent.fromId(out['intent']).id;
+          if (local != ChatIntent.none) return local.id;
+          // Server hay gan "lab" chi vi cau tra loi co mo phong; the Phong thi nghiem chi hien khi nguoi hoc tu hoi.
+          final remote = ChatIntent.fromId(out['intent']);
+          return remote == ChatIntent.lab ? ChatIntent.none.id : remote.id;
         })(),
       ));
       thread.updatedAt = DateTime.now();
