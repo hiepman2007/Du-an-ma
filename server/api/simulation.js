@@ -29,14 +29,14 @@ ${question ? `Cau hoi cua hoc sinh: ${String(question).slice(0, 500)}
 ` : ''}Mo phong can tao: ${simPrompt}`;
   const started = Date.now();
   for (let attempt = 0; attempt < 2; attempt++) {
-    // Vercel cat ham sau 60 giay: lan dau duoc toi ~52 giay, chi thu lai khi con du thoi gian.
-    const timeoutMs = 52_000 - (Date.now() - started);
-    if (timeoutMs < 15_000) break;
+    // vercel.json cho ham nay chay toi 180 giay; chi thu lai khi con du thoi gian.
+    const timeoutMs = 170_000 - (Date.now() - started);
+    if (timeoutMs < 40_000) break;
     const { json } = await generateJson({
       timeoutMs,
       maxAttempts: 1,
       step: previous ? 'simulation-revise' : 'simulation',
-      kind: 'lesson',
+      kind: 'simulation',
       system: simulationSystem(role),
       parts: [{ kind: 'text', text }],
       schemaName: 'simulation',

@@ -26,9 +26,11 @@ const DEFAULT_MODELS = {
  */
 export function modelFor(kind) {
   const p = providerName();
-  const env = { outline: process.env.MODEL_OUTLINE, lesson: process.env.MODEL_LESSON, small: process.env.MODEL_SMALL }[kind];
+  const env = { outline: process.env.MODEL_OUTLINE, lesson: process.env.MODEL_LESSON, small: process.env.MODEL_SMALL,
+    simulation: process.env.MODEL_SIMULATION || process.env.MODEL_LESSON }[kind];
   const matches = env && (p === 'gemini' ? env.startsWith('gemini') : !env.startsWith('gemini'));
-  return matches ? env : DEFAULT_MODELS[p][kind];
+  // Mo phong (AI viet ca ung dung HTML) co the dung model manh hon qua MODEL_SIMULATION; mac dinh nhu buoc bai hoc.
+  return matches ? env : DEFAULT_MODELS[p][kind === 'simulation' ? 'lesson' : kind];
 }
 
 // Gia USD / 1 trieu token (input, cached input, output) - trang gia OpenAI va Google ngay 13/11/2026.

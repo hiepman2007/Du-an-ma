@@ -62,3 +62,12 @@ test('phenomenon_sim: chi nhan canh trong danh muc, bo bien la, kep gia tri mac 
   assert.equal(circuit.phenomenon.option, 'parallel');
   assert.equal(cleanBlocks([{ type: 'phenomenon_sim', topic: 'x', phenomenon: { scene: 'rocket', option: null, variables: [], challenges: [] } }]).length, 0);
 });
+
+test('mô phỏng kiểu Canvas: cho CDN trong danh sách, chặn địa chỉ lạ và kết nối mạng', () => {
+  const ok = sanitizeSimulationHtml('<script src="https://cdn.tailwindcss.com"></script><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script><canvas></canvas><script>// ve la cay\nconst ns="http://www.w3.org/2000/svg";</script>');
+  assert.ok(ok.includes("connect-src 'none'"));
+  assert.ok(ok.includes('https://cdn.tailwindcss.com'));
+  assert.equal(sanitizeSimulationHtml('<script src="https://evil.example/x.js"></script>' + 'a'.repeat(60)), null);
+  assert.equal(sanitizeSimulationHtml('<img src="//evil.example/a.png">' + 'a'.repeat(60)), null);
+  assert.equal(sanitizeSimulationHtml('<script src="https://cdn.tailwindcss.com"></script><script>fetch("x")</script>' + 'a'.repeat(60)), null);
+});

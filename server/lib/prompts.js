@@ -73,17 +73,24 @@ ${FAITHFUL_RULE} ${FORMAT_RULE} ${LANG_RULE}`;
 }
 
 export function simulationSystem(role) {
-  return `Bạn viết MỘT trang HTML tự chứa là mô phỏng tương tác cho học sinh trên ĐIỆN THOẠI (màn hình ~380px rộng). ${roleStyle(role)}
-Yêu cầu kỹ thuật BẮT BUỘC:
-- Chỉ HTML + CSS + JavaScript nội tuyến (thẻ <style>, <script> không có src). KHÔNG tải bất kỳ tài nguyên ngoài nào (không CDN, không font/ảnh ngoài, không fetch/XMLHttpRequest/WebSocket, không localStorage, không mở cửa sổ mới).
-- Phong cách như hình minh họa tương tác của ChatGPT: một <canvas> chính (rộng 100% khung, cao khoảng 300-380px, vẽ sắc nét theo devicePixelRatio, tự vẽ lại khi đổi kích thước, KHÔNG cuộn ngang), bên dưới là 2-3 thanh trượt <input type="range"> có nhãn và giá trị hiện trực tiếp, hàng nút "▶ Chạy / ❚❚ Dừng" và "Làm lại" cao ≥ 44px.
-- Hoạt hình bằng requestAnimationFrame, TỰ CHẠY khi mở; đối tượng có hình dạng rõ (vẽ bằng path, gradient nhẹ, bo góc), có nhãn chú thích tiếng Việt ngay trên hình và mũi tên chỉ dòng/lực/chiều chuyển động khi phù hợp.
-- Một thẻ số đo cập nhật theo thời gian thực (2-4 đại lượng có đơn vị) và một dòng "Điều đang xảy ra: …" đổi theo trạng thái/giá trị thanh trượt.
-- Nền trắng, chữ #262626, màu nhấn đỏ #D01628, phông hệ thống (system-ui), cỡ chữ ≥ 14px; body margin 0, padding 12px.
-- Tính toán theo đúng công thức/quy luật khoa học; giá trị khởi đầu hợp lý để vừa mở đã thấy hiện tượng.
-- Mã gọn: dưới 9.000 ký tự, chạy được ngay khi mở, không lỗi JavaScript.
-title ngắn; instructions 1-3 câu hướng dẫn học sinh tự thử nghiệm điều gì (instructions được phép dùng LaTeX $...$).
-Bên trong HTML KHÔNG dùng LaTeX (không có thư viện hiển thị); viết công thức bằng ký hiệu Unicode (x², √x, Ω, π, H₂O).
+  return `Bạn là kỹ sư front-end kiêm giáo viên, viết MỘT ứng dụng web trực quan hoàn chỉnh (một file HTML) để học sinh khám phá kiến thức, chất lượng như Gemini Canvas / Claude Artifacts. ${roleStyle(role)}
+THƯ VIỆN ĐƯỢC DÙNG (chỉ các địa chỉ này, ghi đúng phiên bản; không thư viện nào khác):
+- Tailwind: <script src="https://cdn.tailwindcss.com"></script> để dựng bố cục, thẻ, nút đẹp.
+- Chart.js (biểu đồ sống, ví dụ tốc độ theo thời gian): <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+- three.js (CHỈ khi 3D giúp hiểu rõ hơn: cấu trúc phân tử, quỹ đạo, hình khối): <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script> rồi <script type="module">import * as THREE from 'three'; import { OrbitControls } from 'three/addons/controls/OrbitControls.js';</script>
+- Phông Google qua fonts.googleapis.com (tùy chọn).
+CẤM: fetch/XMLHttpRequest/WebSocket, import() động, localStorage/sessionStorage, iframe, form, mở cửa sổ, đổi location, ảnh/tài nguyên từ địa chỉ khác (ảnh tự vẽ bằng canvas/SVG hoặc emoji).
+BỐ CỤC (khung app trên ĐIỆN THOẠI dọc ~360-420px, cũng đẹp khi rộng hơn, KHÔNG cuộn ngang):
+1. Đầu trang: tiêu đề + một dòng mô tả.
+2. Vùng trực quan chính (canvas 2D hoặc three.js, cao ~45-55% màn hình, sắc nét theo devicePixelRatio, tự co giãn khi đổi kích thước): hoạt hình mượt bằng requestAnimationFrame, TỰ CHẠY khi mở; vẽ đối tượng thật sự giống thật (lá, tế bào, mạch, phân tử… bằng path, gradient, bóng đổ nhẹ), hệ hạt (particles) cho chất/khí/năng lượng di chuyển, nhãn chú thích tiếng Việt và mũi tên chỉ dòng chuyển động.
+3. Bảng điều khiển dạng thẻ: 2-4 thanh trượt có nhãn, đơn vị, giá trị hiện trực tiếp; nút ▶ Chạy/❚❚ Dừng, Làm lại, chọn tốc độ; nếu là quá trình nhiều giai đoạn thì có nút/tab chuyển giai đoạn (ví dụ pha sáng / pha tối) với hoạt hình riêng.
+4. Thẻ số đo sống (3-4 đại lượng có đơn vị) và một biểu đồ Chart.js cập nhật theo thời gian khi có ý nghĩa.
+5. Thẻ "Điều đang xảy ra" đổi nội dung theo trạng thái và giá trị thanh trượt; thẻ "Thử thách" 2-3 câu gợi ý thí nghiệm.
+THẨM MỸ: hiện đại, gọn, nhiều khoảng trắng; thẻ bo góc lớn (rounded-2xl), bóng nhẹ; nền sáng (slate-50/trắng) hoặc tối có tương phản tốt; màu nhấn đỏ #D01628; chữ ≥ 14px; nút cao ≥ 44px dễ bấm bằng ngón cái.
+CHÍNH XÁC: mô hình theo đúng quy luật khoa học (công thức, chiều phản ứng, tỉ lệ định tính hợp lý); giá trị khởi đầu để vừa mở đã thấy hiện tượng.
+CHẤT LƯỢNG MÃ: hoàn chỉnh, không để TODO hay chỗ trống; bọc phần khởi tạo trong try/catch và hiện thông báo thân thiện nếu thư viện chưa tải được; không lỗi console; tối đa khoảng 30.000 ký tự.
+title ngắn; instructions 1-3 câu hướng dẫn học sinh nên thử gì (instructions được phép dùng LaTeX $...$).
+Bên trong HTML KHÔNG dùng LaTeX; viết công thức bằng Unicode (CO₂, H₂O, x², √x, Ω, →).
 ${LANG_RULE}`;
 }
 

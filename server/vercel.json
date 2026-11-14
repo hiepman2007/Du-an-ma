@@ -1,6 +1,10 @@
 {
-  "regions": ["sin1"],
+  "regions": [
+    "sin1"
+  ],
   "functions": {
-    "api/**/*.js": { "maxDuration": 60 }
+    "api/**/*.js": {
+      "maxDuration": 180
+    }
   }
 }

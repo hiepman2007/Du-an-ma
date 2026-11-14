@@ -485,6 +485,19 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// Luu mo phong vua dung trong chat thanh mot Canvas trong Studio (de sua tiep, xem ma, giu cac phien ban).
+  Future<StudyArtifact?> saveSimulationAsCanvas(Course course, Block block) async {
+    final sim = block.sim;
+    if (sim == null || !courses.contains(course)) return null;
+    final artifact = StudyArtifact(id: _uuid.v4(), kind: StudyArtifactKind.canvas,
+      title: '${sim['title'] ?? ''}'.trim().isEmpty ? 'Canvas' : '${sim['title']}'.trim(),
+      blocks: [_canvasVersion(sim, '${block.raw['sim_prompt'] ?? ''}')]);
+    course.artifacts.add(artifact);
+    notifyListeners();
+    await _save();
+    return artifact;
+  }
+
   /// Sua canvas tu phien ban [from] theo [instruction]; them phien ban moi o cuoi.
   Future<bool?> reviseCanvas(Course course, StudyArtifact artifact, int from, String instruction) {
     return _run(course, 'canvas', () async {

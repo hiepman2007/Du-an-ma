@@ -41,7 +41,8 @@ class ApiClient {
       final f = method == 'GET'
           ? _client.get(uri, headers: _headers)
           : _client.post(uri, headers: _headers, body: jsonEncode(body ?? {}));
-      return f.timeout(const Duration(seconds: 120));
+      // Dung mo phong (AI viet ca ung dung) duoc toi 180 giay o server.
+      return f.timeout(Duration(seconds: path == '/api/simulation' ? 200 : 120));
     }
 
     http.Response r;

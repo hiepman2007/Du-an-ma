@@ -103,19 +103,32 @@ export function cleanBlocks(blocks, { allowedUrls } = {}) {
   return out;
 }
 
-// --- Mo phong tuy bien (HTML do AI viet) ---
+// --- Mo phong tuy bien (HTML do AI viet, kieu Gemini Canvas) ---
+// Chi duoc tai thu vien tu cac CDN nay (Tailwind, three.js, Chart.js, phong Google). Moi ket noi khac bi chan:
+// CSP connect-src 'none' chan fetch/XHR/WebSocket ke ca tu thu vien.
+export const SIM_CDN_HOSTS = ['cdn.tailwindcss.com', 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+const SIM_MAX = 60000;
 const FORBIDDEN = [
-  /<script[^>]+src\s*=/i, /<link[^>]+href\s*=\s*["']?https?:/i, /<iframe/i, /<object/i, /<embed/i,
+  /<iframe/i, /<object/i, /<embed/i, /<base\b/i, /<form\b/i, /http-equiv/i,
   /\bfetch\s*\(/i, /XMLHttpRequest/i, /WebSocket/i, /EventSource/i, /\bimport\s*\(/i, /sendBeacon/i,
-  /localStorage/i, /sessionStorage/i, /indexedDB/i, /document\.cookie/i, /window\.open/i,
-  /(src|href)\s*=\s*["']?\s*(https?:|\/\/)/i, /url\(\s*["']?\s*(https?:|\/\/)/i, /@import/i,
+  /localStorage/i, /sessionStorage/i, /indexedDB/i, /document\.cookie/i, /window\.open/i, /\.location\s*=/i,
 ];
+// URL tuyet doi (http/https) hoac tuong doi giao thuc ngay sau dau nhay / = / ( ; khong bat nham chu thich "//" trong JS.
+const URL_RE = /(?:https?:\/\/|["'(=]\s*\/\/)([a-z0-9.-]+)/gi;
 
-/** Tra ve HTML da boc CSP chan moi ket noi ngoai, hoac null neu vi pham. */
+const hostOk = (host) => SIM_CDN_HOSTS.includes(host.toLowerCase());
+
+/** Tra ve HTML da boc CSP (chi cho CDN trong danh sach, chan moi ket noi), hoac null neu vi pham. */
 export function sanitizeSimulationHtml(html) {
-  if (typeof html !== 'string' || html.length < 50 || html.length > 30000) return null;
+  if (typeof html !== 'string' || html.length < 50 || html.length > SIM_MAX) return null;
   if (FORBIDDEN.some((re) => re.test(html))) return null;
-  const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:">`;
+  for (const m of html.matchAll(URL_RE)) {
+    // Bo qua chuoi nhu "http://www.w3.org/2000/svg" (namespace SVG, khong tai gi).
+    if (/^www\.w3\.org$/i.test(m[1])) continue;
+    if (!hostOk(m[1])) return null;
+  }
+  const cdn = SIM_CDN_HOSTS.map((h) => `https://${h}`).join(' ');
+  const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' ${cdn}; style-src 'unsafe-inline' ${cdn}; font-src data: ${cdn}; img-src data: blob:; connect-src 'none'; media-src 'none'; frame-src 'none'; form-action 'none'">`;
   const viewport = '<meta name="viewport" content="width=device-width, initial-scale=1">';
   const body = html.replace(/<!doctype[^>]*>/i, '').replace(/<\/?html[^>]*>/gi, '').replace(/<head>|<\/head>/gi, '');
   return `<!doctype html><html><head><meta charset="utf-8">${csp}${viewport}</head>${body.includes('<body') ? body : `<body>${body}</body>`}</html>`;
@@ -130,5 +143,5 @@ export function unwrapSimulationHtml(html) {
     .replace(/<\/?html[^>]*>/gi, '')
     .replace(/<\/?head>/gi, '')
     .trim()
-    .slice(0, 30000);
+    .slice(0, SIM_MAX);
 }
