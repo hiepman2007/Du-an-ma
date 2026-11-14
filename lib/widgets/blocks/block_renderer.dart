@@ -16,11 +16,15 @@ import 'question_blocks.dart';
 
 /// Dung widget Flutter tuong ung voi loai khoi AI da chon.
 class BlockRenderer extends StatelessWidget {
-  const BlockRenderer({super.key, required this.block, required this.lesson, required this.onAnswered, this.onTutor});
+  const BlockRenderer({super.key, required this.block, required this.lesson, required this.onAnswered, this.onTutor, this.autoSim = false, this.question});
   final Block block;
   final Lesson lesson;
   final OnAnswered onAnswered;
   final void Function(String chosen, String correct)? onTutor;
+
+  /// Trong chat: mo phong custom_sim tu dung ngay, bam sat [question].
+  final bool autoSim;
+  final String? question;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +44,7 @@ class BlockRenderer extends StatelessWidget {
       BlockType.stepSolver => StepSolverBlock(block: block),
       BlockType.conceptMap => ConceptMapBlock(block: block),
       BlockType.imageCard => ImageCardBlock(block: block),
-      BlockType.customSim => CustomSimBlock(block: block, lesson: lesson),
+      BlockType.customSim => CustomSimBlock(block: block, lesson: lesson, auto: autoSim, question: question),
       BlockType.codeDemo => CodeDemoBlock(block: block),
       BlockType.dsaSim => DsaSimulationBlock(block: block),
       BlockType.phenomenonSim => PhenomenonBlock(block: block),

@@ -92,13 +92,12 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('Nhận diện ý định và cảnh thí nghiệm từ câu chat', () {
+  test('Nhận diện ý định từ câu chat', () {
     expect(detectIntent('Lập lộ trình ôn Vật lý 12'), ChatIntent.plan);
     expect(detectIntent('tạo quiz về định luật Ohm'), ChatIntent.quiz);
     expect(detectIntent('cho mình làm thí nghiệm khúc xạ'), ChatIntent.lab);
     expect(detectIntent('vì sao trời xanh'), ChatIntent.none);
-    expect(sceneFor('Vì sao ống hút trong cốc nước trông bị gãy?'), 'refraction');
-    expect(sceneFor('chuẩn độ axit bằng bazơ'), 'titration');
+    expect(detectIntent('Quang hợp diễn ra thế nào?'), ChatIntent.none);
   });
 
   testWidgets('Ghép nhanh: ghép đúng hết thì ghi kỷ lục', (tester) async {

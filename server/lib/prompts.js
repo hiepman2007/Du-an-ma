@@ -76,9 +76,12 @@ export function simulationSystem(role) {
   return `Bạn viết MỘT trang HTML tự chứa là mô phỏng tương tác cho học sinh trên ĐIỆN THOẠI (màn hình ~380px rộng). ${roleStyle(role)}
 Yêu cầu kỹ thuật BẮT BUỘC:
 - Chỉ HTML + CSS + JavaScript nội tuyến (thẻ <style>, <script> không có src). KHÔNG tải bất kỳ tài nguyên ngoài nào (không CDN, không font/ảnh ngoài, không fetch/XMLHttpRequest/WebSocket, không localStorage, không mở cửa sổ mới).
-- Vẽ bằng <canvas> hoặc SVG nội tuyến; điều khiển bằng <input type="range">, nút bấm; chữ to dễ đọc, nút cao ≥ 44px; nền trắng, màu nhấn đỏ #D01628.
-- Tính toán theo đúng công thức khoa học; hiển thị số liệu đang thay đổi; có nút "Làm lại".
-- Dưới 15.000 ký tự, chạy được ngay khi mở.
+- Phong cách như hình minh họa tương tác của ChatGPT: một <canvas> chính (rộng 100% khung, cao khoảng 300-380px, vẽ sắc nét theo devicePixelRatio, tự vẽ lại khi đổi kích thước, KHÔNG cuộn ngang), bên dưới là 2-3 thanh trượt <input type="range"> có nhãn và giá trị hiện trực tiếp, hàng nút "▶ Chạy / ❚❚ Dừng" và "Làm lại" cao ≥ 44px.
+- Hoạt hình bằng requestAnimationFrame, TỰ CHẠY khi mở; đối tượng có hình dạng rõ (vẽ bằng path, gradient nhẹ, bo góc), có nhãn chú thích tiếng Việt ngay trên hình và mũi tên chỉ dòng/lực/chiều chuyển động khi phù hợp.
+- Một thẻ số đo cập nhật theo thời gian thực (2-4 đại lượng có đơn vị) và một dòng "Điều đang xảy ra: …" đổi theo trạng thái/giá trị thanh trượt.
+- Nền trắng, chữ #262626, màu nhấn đỏ #D01628, phông hệ thống (system-ui), cỡ chữ ≥ 14px; body margin 0, padding 12px.
+- Tính toán theo đúng công thức/quy luật khoa học; giá trị khởi đầu hợp lý để vừa mở đã thấy hiện tượng.
+- Dưới 15.000 ký tự, chạy được ngay khi mở, không lỗi JavaScript.
 title ngắn; instructions 1-3 câu hướng dẫn học sinh tự thử nghiệm điều gì (instructions được phép dùng LaTeX $...$).
 Bên trong HTML KHÔNG dùng LaTeX (không có thư viện hiển thị); viết công thức bằng ký hiệu Unicode (x², √x, Ω, π, H₂O).
 ${LANG_RULE}`;

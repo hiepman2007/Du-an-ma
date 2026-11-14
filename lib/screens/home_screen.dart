@@ -53,13 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (intent == ChatIntent.plan) {
         await state.createNotebook(prompt: text);
         if (mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) => const NotebookScreen(initialTab: NotebookTab.studio)));
-      } else if (intent == ChatIntent.lab && state.courses.isEmpty) {
-        final scene = simCatalog[sceneFor(text)];
-        if (scene != null) {
-          openSim(context, scene);
-        } else {
-          await Navigator.push(context, MaterialPageRoute(builder: (_) => const LabScreen()));
-        }
       } else {
         final course = state.selectedCourse ?? await state.createNotebook(title: _titleFrom(text));
         if (mounted) await _openNotebook(course, question: text);

@@ -839,7 +839,12 @@ class _TutorAnswerState extends State<_TutorAnswer> with SingleTickerProviderSta
               for (final (i, b) in m.blocks.indexed)
                 if (i == 0 || done) ...[
                   // Cau hoi kiem tra trong chat khong tinh vao ket qua bai hoc.
-                  BlockRenderer(block: i == 0 && !done && _body.isNotEmpty ? _partial(b, _c.value) : b, lesson: widget.lesson, onAnswered: (_, _, _) {}),
+                  BlockRenderer(
+                      block: i == 0 && !done && _body.isNotEmpty ? _partial(b, _c.value) : b,
+                      lesson: widget.lesson,
+                      onAnswered: (_, _, _) {},
+                      autoSim: true,
+                      question: widget.question),
                   if (b.sourceId != null && done) StudyCitation(course: widget.course, block: b),
                 ],
               if (done && m.web.isNotEmpty) _WebSources(sources: m.web),

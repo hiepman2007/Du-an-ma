@@ -5,6 +5,7 @@ import { fail } from './http.js';
 import { askSystem, roleStyle } from './prompts.js';
 import { lessonSchema } from './schemas.js';
 import { cleanBlocks } from './validate.js';
+import { resolveImages } from './images.js';
 import { canonicalUrl } from './research.js';
 
 const string = { type: 'string' };
@@ -28,7 +29,7 @@ const dsaSchema = object({
 const existingBlock = lessonSchema.properties.blocks.items.properties;
 const quizTypes = ['mcq', 'true_false', 'fill_blank', 'matching', 'ordering'];
 const lessonTypes = ['text_section', 'code_demo', 'step_solver', 'concept_map', 'flashcards', ...quizTypes,
-  'dsa_sim', 'formula_lab', 'function_graph', 'reaction_lab', 'chem_formula', 'motion_sim', 'phenomenon_sim'];
+  'dsa_sim', 'formula_lab', 'function_graph', 'reaction_lab', 'chem_formula', 'motion_sim', 'phenomenon_sim', 'image_card'];
 const studio = {
   summary: { types: ['text_section'], instruction: 'Tóm tắt bằng 2–4 mục, mở đầu bằng các ý chính và giải thích ngắn.' },
   quick_quiz: { types: quizTypes.slice(0, 3), instruction: 'Viết tối đa 5 câu trắc nghiệm, đúng/sai hoặc điền khuyết, có đáp án và giải thích.' },
@@ -39,7 +40,7 @@ const fieldsForType = {
   mcq: ['options', 'answer_index'], true_false: ['answer_bool'], fill_blank: ['answers'],
   matching: ['pairs'], ordering: ['items'], flashcards: ['cards'], step_solver: ['steps'],
   concept_map: ['nodes', 'edges'], code_demo: ['code'], formula_lab: ['lab'], function_graph: ['graph'],
-  reaction_lab: ['reaction'], chem_formula: ['chem'], motion_sim: ['motion'], phenomenon_sim: ['phenomenon'],
+  reaction_lab: ['reaction'], chem_formula: ['chem'], motion_sim: ['motion'], phenomenon_sim: ['phenomenon'], image_card: ['image_query'], custom_sim: ['sim_prompt'],
 };
 // Y dinh cua nguoi hoc trong khung chat: app dung de hien the dieu huong (mo lo trinh, quiz, phong thi nghiem...).
 export const CHAT_INTENTS = ['none', 'plan', 'quiz', 'flashcards', 'lab', 'summary', 'test'];
@@ -353,7 +354,7 @@ export async function createStudyLesson(body = {}) {
       `Bạn là giảng viên hướng dẫn người học từng bước. ${roleStyle(role)} ${sourceRules}`,
       contentSchema(lessonTypes),
     );
-    const blocks = validateStudyBlocks(json?.blocks, evidence, lessonTypes).slice(0, 10);
+    const blocks = (await resolveImages(validateStudyBlocks(json?.blocks, evidence, lessonTypes))).slice(0, 10);
     if (blocks[0]?.type !== 'text_section' || !blocks.some(({ type }) => quizTypes.includes(type))) {
       throw fail(502, 'AI chưa tạo đủ phần giảng và câu kiểm tra. Hãy thử lại.');
     }
@@ -365,7 +366,7 @@ export async function answerStudyQuestion(body = {}) {
   const question = cleanText(body.question, 1000);
   if (!question) throw fail(400, 'Hãy nhập câu hỏi của bạn.');
   const role = roleFor(body.role);
-  const types = ['text_section', 'code_demo', 'step_solver', 'concept_map', 'mcq', 'true_false', 'dsa_sim', 'phenomenon_sim'];
+  const types = ['text_section', 'code_demo', 'step_solver', 'concept_map', 'mcq', 'true_false', 'dsa_sim', 'phenomenon_sim', 'image_card', 'custom_sim'];
   const schema = contentSchema(types);
   schema.properties.intent = { type: 'string', enum: CHAT_INTENTS };
   schema.required.push('intent');
@@ -375,10 +376,11 @@ export async function answerStudyQuestion(body = {}) {
   return generateStudy('study-ask', 'small', body, async ({ evidence }, call) => {
     const { json } = await call(
       `Môn: ${cleanText(body.subject, 100)}. Bài: ${cleanText(body.lessonTitle, 150)}. Bước học: ${cleanText(body.step, 400)}. Hội thoại gần đây: ${JSON.stringify(history)}. Câu hỏi mới: ${question}`,
-      `${askSystem(role, { hasSources: evidence.size > 0, socratic: body.socratic === true })} ${sourceRules} Nếu nguồn đã chọn không đủ, hãy nêu rõ và không gắn nguồn không liên quan. Khi câu hỏi về một hiện tượng/thí nghiệm khớp một cảnh phenomenon_sim, thêm khối đó sau phần giải thích. intent: "plan" nếu người học muốn lập lộ trình/kế hoạch học, "quiz" nếu muốn làm bài kiểm tra/câu hỏi luyện, "flashcards" nếu muốn thẻ ghi nhớ, "lab" nếu muốn làm thí nghiệm/mô phỏng, "summary" nếu muốn tóm tắt, "test" nếu muốn thi thử; còn lại "none".`,
+      `${askSystem(role, { hasSources: evidence.size > 0, socratic: body.socratic === true })} ${sourceRules} Nếu nguồn đã chọn không đủ, hãy nêu rõ và không gắn nguồn không liên quan. Giống ChatGPT, minh họa bằng ảnh thật: khi câu hỏi nói về một vật, hiện tượng, thiết bị, sinh vật, cấu tạo, địa danh hay nhân vật có thể chụp/vẽ được, thêm đúng 1 khối image_card ngay sau khối text_section đầu tiên (image_query là 2-5 từ khóa TIẾNG ANH cụ thể, body là chú thích ngắn tiếng Việt). Giống ChatGPT, minh họa bằng MÔ PHỎNG TƯƠNG TÁC RIÊNG: khi khái niệm có quá trình hoặc biến số nhìn thấy được (quang hợp, hô hấp tế bào, tuần hoàn máu, mạch điện, cung cầu, dao động, phản ứng, chuyển động…), thêm đúng 1 khối custom_sim. sim_prompt (≤ 500 ký tự) viết RIÊNG cho câu hỏi này: vẽ những đối tượng nào và chúng chuyển động/biến đổi ra sao, 2-3 thanh trượt điều khiển biến nào (đơn vị, khoảng giá trị), số đo nào hiển thị, người học nên thử và quan sát điều gì; body là 1 câu giới thiệu mô phỏng. Chỉ dùng phenomenon_sim thay cho custom_sim khi một cảnh dựng sẵn KHỚP ĐÚNG chủ đề câu hỏi; tuyệt đối không dùng cảnh của chủ đề khác. intent: "plan" nếu người học muốn lập lộ trình/kế hoạch học, "quiz" nếu muốn làm bài kiểm tra/câu hỏi luyện, "flashcards" nếu muốn thẻ ghi nhớ, "lab" nếu muốn làm thí nghiệm/mô phỏng, "summary" nếu muốn tóm tắt, "test" nếu muốn thi thử; còn lại "none".`,
       schema,
     );
-    const blocks = validateStudyBlocks(json?.blocks, evidence, types).slice(0, 5);
+    const blocks = (await resolveImages(validateStudyBlocks(json?.blocks, evidence, types)))
+      .filter((b, i, all) => b.type !== 'custom_sim' || all.findIndex((x) => x.type === 'custom_sim') === i).slice(0, 6);
     if (blocks[0]?.type !== 'text_section') throw fail(502, 'AI chưa trả lời được câu hỏi này. Hãy thử lại.');
     const intent = CHAT_INTENTS.includes(json?.intent) ? json.intent : 'none';
     return { ...withSources(cleanText(json.title, 150) || 'Gia sư', blocks), intent, web: [], webMode: 'off' };

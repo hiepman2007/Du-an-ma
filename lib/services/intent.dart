@@ -30,24 +30,3 @@ ChatIntent detectIntent(String text) {
   }
   return ChatIntent.none;
 }
-
-final _scenes = <(String, RegExp)>[
-  ('refraction', RegExp(r'khúc xạ|phản xạ toàn phần|chiết suất|ống hút.*gãy|lăng kính', caseSensitive: false)),
-  ('lens', RegExp(r'thấu kính|tiêu cự|kính lúp|tạo ảnh', caseSensitive: false)),
-  ('circuit', RegExp(r'mạch điện|định luật ohm|điện trở|nối tiếp|song song|bóng đèn|dòng điện', caseSensitive: false)),
-  ('spring', RegExp(r'lò xo|dao động điều hòa|con lắc lò xo', caseSensitive: false)),
-  ('wave', RegExp(r'sóng|giao thoa|bước sóng', caseSensitive: false)),
-  ('gas', RegExp(r'chất khí|áp suất|boyle|sác-lơ|charles|đẳng nhiệt|khí lí tưởng|khí lý tưởng', caseSensitive: false)),
-  ('electric_field', RegExp(r'điện trường|đường sức|cu-lông|coulomb|điện tích', caseSensitive: false)),
-  ('buoyancy', RegExp(r'ác-si-mét|archimedes|lực đẩy|nổi|chìm|khối lượng riêng', caseSensitive: false)),
-  ('titration', RegExp(r'chuẩn độ|ph\b|axit|bazơ|trung hòa|chất chỉ thị|phenolphtalein|quỳ tím', caseSensitive: false)),
-  ('states', RegExp(r'nóng chảy|bay hơi|sôi|đông đặc|chuyển thể|thể rắn|thể lỏng|thể khí', caseSensitive: false)),
-];
-
-/// Canh mo phong hop voi cau hoi (id trong simCatalog), null neu khong khop.
-String? sceneFor(String text) {
-  for (final (id, re) in _scenes) {
-    if (re.hasMatch(text)) return id;
-  }
-  return null;
-}

@@ -142,3 +142,14 @@ test('study endpoints assemble a course in two model calls and ground Studio and
   assert.equal(answer.code, 200);
   assert.deepEqual(answer.body.source_ids, [source.id]);
 });
+
+test('chat học tập nhận khối mô phỏng tự dựng và ảnh minh họa', () => {
+  const types = ['text_section', 'image_card', 'custom_sim'];
+  const blocks = validateStudyBlocks([
+    { type: 'text_section', topic: 'Quang hợp', body: 'Cây dùng ánh sáng để tạo glucose.' },
+    { type: 'image_card', topic: 'Quang hợp', image_query: 'chloroplast diagram', body: 'Lục lạp' },
+    { type: 'custom_sim', topic: 'Quang hợp', sim_prompt: 'Lá cây hấp thụ ánh sáng, thanh trượt cường độ ánh sáng và CO2, đếm bọt O2.' },
+    { type: 'custom_sim', topic: 'Quang hợp', sim_prompt: '' },
+  ], new Map(), types);
+  assert.deepEqual(blocks.map((b) => b.type), ['text_section', 'image_card', 'custom_sim']);
+});

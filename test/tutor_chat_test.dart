@@ -6,6 +6,7 @@ import 'package:hoc_thong_minh/screens/tutor_chat_screen.dart';
 import 'package:hoc_thong_minh/services/api_client.dart';
 import 'package:hoc_thong_minh/services/storage.dart';
 import 'package:hoc_thong_minh/state/app_state.dart';
+import 'package:hoc_thong_minh/widgets/canvas_preview.dart';
 import 'package:hoc_thong_minh/theme.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -31,6 +32,22 @@ class _Api extends ApiClient {
     return {'blocks': [
       {'type': 'text_section', 'topic': 'Ôm', 'body': 'Trả lời số $answers: ' r'cường độ dòng điện $I = U/R$ tỉ lệ nghịch với điện trở.'},
     ]};
+  }
+}
+
+class _SimApi extends _Api {
+  final simBodies = <Map<String, dynamic>>[];
+
+  @override
+  Future<Map<String, dynamic>> studyAsk(Map<String, dynamic> body) async => {'intent': 'none', 'blocks': [
+        {'type': 'text_section', 'topic': 'Quang hợp', 'body': 'Cây dùng ánh sáng để tạo glucose.'},
+        {'type': 'custom_sim', 'topic': 'Quang hợp', 'body': 'Thử chỉnh ánh sáng.', 'sim_prompt': 'Lá cây, thanh trượt ánh sáng, đếm bọt O2'},
+      ]};
+
+  @override
+  Future<Map<String, dynamic>> simulation(Map<String, dynamic> body) async {
+    simBodies.add(body);
+    return {'title': 'Quang hợp trong lá', 'instructions': 'Kéo thanh ánh sáng.', 'html': '<canvas></canvas>${body['previousHtml'] == null ? '' : 'v2'}'};
   }
 }
 
@@ -162,5 +179,41 @@ void main() {
     expect(back.lessons.single.chat, isEmpty);
     final again = Course.fromJson(back.toJson());
     expect(again.threads, hasLength(2));
+  });
+
+  testWidgets('Mô phỏng riêng cho câu hỏi tự dựng trong chat, sửa được bằng lời', (tester) async {
+    CanvasPreview.debugBuilder = (html) => Text('PREVIEW $html');
+    addTearDown(() => CanvasPreview.debugBuilder = null);
+    tester.view.physicalSize = const Size(375 * 3, 812 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final api = _SimApi();
+    final state = AppState(api: api, storage: _Store())
+      ..loaded = true
+      ..role = UserRole.student
+      ..courses.add(_course());
+    await tester.pumpWidget(ChangeNotifierProvider.value(
+        value: state, child: MaterialApp(theme: buildTheme(), home: const TutorChatScreen(courseId: 'c1'))));
+    await tester.pumpAndSettle();
+    await _send(tester, 'Quang hợp diễn ra thế nào?');
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining(findRichText: true, 'Cây dùng ánh sáng'));
+    await tester.pumpAndSettle();
+    expect(api.simBodies.single['question'], 'Quang hợp diễn ra thế nào?');
+    await tester.scrollUntilVisible(find.text('Sửa bằng lời'), 200, scrollable: find.byType(Scrollable).first);
+    expect(find.text('PREVIEW <canvas></canvas>'), findsOneWidget);
+    expect(find.text('Quang hợp trong lá'), findsOneWidget);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sửa bằng lời'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sửa mô phỏng'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'thêm thanh nhiệt độ');
+    await tester.tap(find.widgetWithText(FilledButton, 'Sửa'));
+    await tester.pumpAndSettle();
+    expect(api.simBodies.last['simPrompt'], 'thêm thanh nhiệt độ');
+    await tester.scrollUntilVisible(find.text('PREVIEW <canvas></canvas>v2'), -200, scrollable: find.byType(Scrollable).first);
+    expect(find.text('PREVIEW <canvas></canvas>v2'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

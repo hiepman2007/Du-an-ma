@@ -685,15 +685,39 @@ class AppState extends ChangeNotifier {
   }
 
   /// Mo phong tuy bien (tang du phong): sinh HTML khi hoc sinh bam, luu vao khoi de mo lai khong goi AI.
-  Future<void> generateSimulation(Lesson lesson, Block block) async {
-    final out = await api.simulation({
-      'role': _roleId,
-      'lessonTitle': lesson.title,
-      'topic': block.topic,
-      'simPrompt': block.raw['sim_prompt'] ?? block.body ?? '',
-    });
-    block.sim = {'title': out['title'], 'instructions': out['instructions'], 'html': out['html']};
+  final Set<Block> _simBusy = Set.identity();
+  final Set<Block> _simFailed = Set.identity();
+
+  bool isSimBusy(Block block) => _simBusy.contains(block);
+
+  /// Lan tu dung truoc bi loi: khong tu thu lai nua, cho nguoi hoc bam Thu lai.
+  bool simFailed(Block block) => _simFailed.contains(block);
+
+  /// AI viet mo phong HTML cho khoi custom_sim. [question]: cau hoi goc trong chat de mo phong bam sat;
+  /// [revise]: yeu cau sua ban hien tai bang loi (gui kem HTML cu).
+  Future<void> generateSimulation(Lesson lesson, Block block, {String? question, String? revise}) async {
+    if (_simBusy.contains(block)) return;
+    _simBusy.add(block);
+    _simFailed.remove(block);
     notifyListeners();
+    try {
+      final out = await api.simulation({
+        'role': _roleId,
+        'lessonTitle': lesson.title,
+        'topic': block.topic,
+        if (question != null && question.isNotEmpty) 'question': question,
+        'simPrompt': revise ?? block.raw['sim_prompt'] ?? block.body ?? '',
+        if (revise != null) 'previousHtml': block.sim?['html'] ?? '',
+      });
+      block.sim = {'title': out['title'], 'instructions': out['instructions'], 'html': out['html']};
+      _bumpActivity();
+    } catch (_) {
+      _simFailed.add(block);
+      rethrow;
+    } finally {
+      _simBusy.remove(block);
+      notifyListeners();
+    }
     await _save();
   }
 

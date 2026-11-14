@@ -8,7 +8,7 @@ import { sanitizeSimulationHtml, unwrapSimulationHtml } from '../lib/validate.js
 // Mo phong tuy bien kieu Canvas: HTML tu chua, chay trong khung cach ly (CSP chan moi ket noi ngoai).
 // Co previousHtml: sua tiep ban hien tai theo yeu cau (simPrompt), giu nguyen phan khong duoc yeu cau doi.
 export default wrap(async (req, res) => {
-  const { role, lessonTitle, simPrompt, topic, previousHtml } = req.body || {};
+  const { role, lessonTitle, simPrompt, topic, previousHtml, question } = req.body || {};
   if (!simPrompt || String(simPrompt).length > 600) throw fail(400, 'Thieu mo ta mo phong');
   const previous = unwrapSimulationHtml(previousHtml);
   const text = previous
@@ -25,7 +25,8 @@ HTML>>>
       + 'instructions mo ta ngan gon da thay doi gi va hoc sinh nen thu gi.'
     : `Bai hoc: ${lessonTitle || ''}
 Chu de: ${topic || ''}
-Mo phong can tao: ${simPrompt}`;
+${question ? `Cau hoi cua hoc sinh: ${String(question).slice(0, 500)}
+` : ''}Mo phong can tao: ${simPrompt}`;
   for (let attempt = 0; attempt < 2; attempt++) {
     const { json } = await generateJson({
       step: previous ? 'simulation-revise' : 'simulation',
