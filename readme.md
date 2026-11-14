@@ -16,7 +16,7 @@ Bố cục: trang chủ có thống kê và ô hỏi AI. Mỗi sổ học có ba
 
 ## Thuyết trình
 
-Bộ slide 6 trang: [Học Thông Minh, thuyết trình](https://claude.ai/artifact/8GtiTjjnQug2hkmDHtTu8Y) (cần chủ sở hữu chia sẻ link thì người khác mới mở được). Nội dung từng trang:
+Bộ slide 6 trang: [Học Thông Minh, thuyết trình](https://drive.google.com/drive/folders/1Q8F2jmorkWHIAgqteVvOgFdxOQQltF88) (cần chủ sở hữu chia sẻ link thì người khác mới mở được). Nội dung từng trang:
 
 ### 1. Vấn đề hiện tại
 **Mở tập slide cả trăm trang, bạn bắt đầu ôn từ đâu?**
